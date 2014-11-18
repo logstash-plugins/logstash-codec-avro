@@ -1,27 +1,25 @@
 # encoding: utf-8
-require 'spec_helper'
+require "logstash/devutils/rspec/spec_helper"
+require 'avro'
 require 'logstash/codecs/avro'
 require 'logstash/event'
-require 'avro'
 
 describe LogStash::Codecs::Avro do
-  let (:avro_config) {{'schema_file' => '
+  let (:avro_config) {{'writer_schema_uri' => '
                         {"type": "record", "name": "Test",
                         "fields": [{"name": "foo", "type": ["null", "string"]},
                                    {"name": "bar", "type": "int"}]}'}}
   let (:test_event) { LogStash::Event.new({"foo" => "hello", "bar" => 10}) }
 
   subject do
+    allow_any_instance_of(LogStash::Codecs::Avro).to \
+      receive(:open_and_read).and_return(avro_config['writer_schema_uri'])
     next LogStash::Codecs::Avro.new(avro_config)
-  end
-
-  before :each do
-    File.stub(:read).and_return(avro_config['schema_file'])
   end
 
   context "#decode" do
     it "should return an LogStash::Event from avro data" do
-      schema = Avro::Schema.parse(avro_config['schema_file'])
+      schema = Avro::Schema.parse(avro_config['writer_schema_uri'])
       dw = Avro::IO::DatumWriter.new(schema)
       buffer = StringIO.new
       encoder = Avro::IO::BinaryEncoder.new(buffer)
@@ -39,7 +37,7 @@ describe LogStash::Codecs::Avro do
     it "should return avro data from a LogStash::Event" do
       got_event = false
       subject.on_event do |data|
-        schema = Avro::Schema.parse(avro_config['schema_file'])
+        schema = Avro::Schema.parse(avro_config['writer_schema_uri'])
         datum = StringIO.new(data)
         decoder = Avro::IO::BinaryDecoder.new(datum)
         datum_reader = Avro::IO::DatumReader.new(schema)
