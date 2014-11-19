@@ -11,6 +11,11 @@ class LogStash::Codecs::Avro < LogStash::Codecs::Base
 
   milestone 1
 
+  # schema path to fetch the schema from
+  # This can be a 'http' or 'file' scheme URI
+  # example:
+  #     http - "http://example.com/schema.avsc"
+  #     file - "/path/to/schema.avsc"
   config :schema_uri, :validate => :string, :required => true
 
   def open_and_read(uri_string)
