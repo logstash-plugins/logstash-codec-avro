@@ -6,7 +6,7 @@ Gem::Specification.new do |s|
   s.summary         = "Encode and decode avro formatted data"
   s.description     = "Encode and decode avro formatted data"
   s.authors         = ["Elasticsearch"]
-  s.email           = 'tal.levy@elasticsearch.com'
+  s.email           = 'info@elasticsearch.com'
   s.homepage        = "http://www.elasticsearch.org/guide/en/logstash/current/index.html"
   s.require_paths   = ["lib"]
 
@@ -25,6 +25,5 @@ Gem::Specification.new do |s|
   s.add_runtime_dependency "avro"  #(Apache 2.0 license)
 
   s.add_development_dependency 'logstash-devutils'
-
 end
 
