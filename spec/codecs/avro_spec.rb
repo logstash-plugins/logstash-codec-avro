@@ -5,7 +5,7 @@ require 'logstash/codecs/avro'
 require 'logstash/event'
 
 describe LogStash::Codecs::Avro do
-  let (:avro_config) {{'writer_schema_uri' => '
+  let (:avro_config) {{'schema_uri' => '
                         {"type": "record", "name": "Test",
                         "fields": [{"name": "foo", "type": ["null", "string"]},
                                    {"name": "bar", "type": "int"}]}'}}
@@ -13,13 +13,13 @@ describe LogStash::Codecs::Avro do
 
   subject do
     allow_any_instance_of(LogStash::Codecs::Avro).to \
-      receive(:open_and_read).and_return(avro_config['writer_schema_uri'])
+      receive(:open_and_read).and_return(avro_config['schema_uri'])
     next LogStash::Codecs::Avro.new(avro_config)
   end
 
   context "#decode" do
     it "should return an LogStash::Event from avro data" do
-      schema = Avro::Schema.parse(avro_config['writer_schema_uri'])
+      schema = Avro::Schema.parse(avro_config['schema_uri'])
       dw = Avro::IO::DatumWriter.new(schema)
       buffer = StringIO.new
       encoder = Avro::IO::BinaryEncoder.new(buffer)
@@ -37,7 +37,7 @@ describe LogStash::Codecs::Avro do
     it "should return avro data from a LogStash::Event" do
       got_event = false
       subject.on_event do |data|
-        schema = Avro::Schema.parse(avro_config['writer_schema_uri'])
+        schema = Avro::Schema.parse(avro_config['schema_uri'])
         datum = StringIO.new(data)
         decoder = Avro::IO::BinaryDecoder.new(datum)
         datum_reader = Avro::IO::DatumReader.new(schema)
