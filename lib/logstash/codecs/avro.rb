@@ -9,7 +9,6 @@ require "logstash/util"
 class LogStash::Codecs::Avro < LogStash::Codecs::Base
   config_name "avro"
 
-  milestone 1
 
   # schema path to fetch the schema from
   # This can be a 'http' or 'file' scheme URI
