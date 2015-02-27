@@ -36,7 +36,7 @@ describe LogStash::Codecs::Avro do
   context "#encode" do
     it "should return avro data from a LogStash::Event" do
       got_event = false
-      subject.on_event do |data|
+      subject.on_event do |event, data|
         schema = Avro::Schema.parse(avro_config['schema_uri'])
         datum = StringIO.new(data)
         decoder = Avro::IO::BinaryDecoder.new(datum)
