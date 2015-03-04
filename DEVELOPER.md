@@ -48,7 +48,7 @@ input {
   kafka {
     topic_id => 'test_topic'
       codec => avro {
-        schema_file => 'tweet.avsc'
+        schema_uri => 'tweet.avsc'
       }
   }
 }
