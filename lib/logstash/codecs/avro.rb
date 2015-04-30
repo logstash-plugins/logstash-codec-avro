@@ -40,6 +40,6 @@ class LogStash::Codecs::Avro < LogStash::Codecs::Base
     buffer = StringIO.new
     encoder = Avro::IO::BinaryEncoder.new(buffer)
     dw.write(event.to_hash, encoder)
-    @on_event.call(buffer.string)
+    @on_event.call(event, buffer.string)
   end
 end
