@@ -24,8 +24,9 @@ describe LogStash::Codecs::Avro do
       buffer = StringIO.new
       encoder = Avro::IO::BinaryEncoder.new(buffer)
       dw.write(test_event.to_hash, encoder)
+      payload = buffer.string.to_java_bytes
 
-      subject.decode(buffer.string) do |event|
+      subject.decode(payload) do |event|
         insist { event.is_a? LogStash::Event }
         insist { event["foo"] } == test_event["foo"]
         insist { event["bar"] } == test_event["bar"]
@@ -38,7 +39,7 @@ describe LogStash::Codecs::Avro do
       got_event = false
       subject.on_event do |event, data|
         schema = Avro::Schema.parse(avro_config['schema_uri'])
-        datum = StringIO.new(data)
+        datum = StringIO.new(String.from_java_bytes(data))
         decoder = Avro::IO::BinaryDecoder.new(datum)
         datum_reader = Avro::IO::DatumReader.new(schema)
         record = datum_reader.read(decoder)
