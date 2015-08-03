@@ -6,6 +6,46 @@ require "logstash/event"
 require "logstash/timestamp"
 require "logstash/util"
 
+# Read serialized Avro records as Logstash events
+#
+# This plugin is used to serialize Logstash events as 
+# Avro datums, as well as deserializing Avro datums into 
+# Logstash events.
+#
+# === Encoding
+# 
+# This codec is for serializing individual Logstash events 
+# as Avro datums that are Avro binary blobs. It does not encode 
+# Logstash events into an Avro file.
+#
+#
+# === Decoding
+#
+# This codec is for deserializing individual Avro records. It is not for reading
+# Avro files. Avro files have a unique format that must be handled upon input.
+#
+#
+# === Usage
+# Example usage with Kafka input.
+#
+# [source,ruby]
+# ----------------------------------
+# input {
+#   kafka {
+#     codec => {
+#       avro => {
+#         schema_uri => "/tmp/schema.avsc"
+#       }
+#     }
+#   }
+# }
+# filter {
+#   ...
+# }
+# output {
+#   ...
+# }
+# ----------------------------------
 class LogStash::Codecs::Avro < LogStash::Codecs::Base
   config_name "avro"
 
