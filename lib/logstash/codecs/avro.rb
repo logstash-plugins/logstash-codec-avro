@@ -32,10 +32,8 @@ require "logstash/util"
 # ----------------------------------
 # input {
 #   kafka {
-#     codec => {
-#       avro => {
+#     codec => avro {
 #         schema_uri => "/tmp/schema.avsc"
-#       }
 #     }
 #   }
 # }
