@@ -1,7 +1,6 @@
 # Logstash Plugin
 
-[![Build
-Status](http://build-eu-00.elastic.co/view/LS%20Plugins/view/LS%20Codecs/job/logstash-plugin-codec-avro-unit/badge/icon)](http://build-eu-00.elastic.co/view/LS%20Plugins/view/LS%20Codecs/job/logstash-plugin-codec-avro-unit/)
+[![Travis Build Status](https://travis-ci.org/logstash-plugins/logstash-codec-avro.svg)](https://travis-ci.org/logstash-plugins/logstash-codec-avro)
 
 This is a plugin for [Logstash](https://github.com/elastic/logstash).
 
