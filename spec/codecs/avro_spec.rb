@@ -27,8 +27,8 @@ describe LogStash::Codecs::Avro do
 
       subject.decode(buffer.string) do |event|
         insist { event.is_a? LogStash::Event }
-        insist { event["foo"] } == test_event["foo"]
-        insist { event["bar"] } == test_event["bar"]
+        insist { event.get("foo") } == test_event.get("foo")
+        insist { event.get("bar") } == test_event.get("bar")
       end
     end
   end
@@ -43,8 +43,8 @@ describe LogStash::Codecs::Avro do
         datum_reader = Avro::IO::DatumReader.new(schema)
         record = datum_reader.read(decoder)
 
-        insist { record["foo"] } == test_event["foo"]
-        insist { record["bar"] } == test_event["bar"]
+        insist { record["foo"] } == test_event.get("foo")
+        insist { record["bar"] } == test_event.get("bar")
         insist { event.is_a? LogStash::Event }
         got_event = true
       end
