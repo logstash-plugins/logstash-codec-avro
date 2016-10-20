@@ -68,10 +68,14 @@ describe LogStash::Codecs::Avro do
         schema = Avro::Schema.parse(avro_config['schema_uri'])
         dw = Avro::IO::DatumWriter.new(schema)
         buffer = StringIO.new
+
+        headers = [MAGIC_BYTE,1234]
+        header = headers.pack("cI>")
+        buffer.write(header)
+
         encoder = Avro::IO::BinaryEncoder.new(buffer)
         dw.write(test_event.to_hash, encoder)
         got_event = false
-
 
         subject.decode(buffer.string) do |event|
           insist { event.is_a? LogStash::Event }
