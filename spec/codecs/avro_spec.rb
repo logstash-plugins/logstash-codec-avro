@@ -69,7 +69,7 @@ describe LogStash::Codecs::Avro do
         dw = Avro::IO::DatumWriter.new(schema)
         buffer = StringIO.new
 
-        headers = [MAGIC_BYTE,1234]
+        headers = [LogStash::Codecs::Avro::MAGIC_BYTE,1234]
         header = headers.pack("cI>")
         buffer.write(header)
 
