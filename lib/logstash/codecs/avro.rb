@@ -61,7 +61,7 @@ class LogStash::Codecs::Avro < LogStash::Codecs::Base
 
   # strip the magic byte and schema_id from the message
   # defaults to false
-  config :strip_headers, :validate => :string, :default => "false"
+  config :strip_headers, :validate => :boolean, :default => false
 
   def open_and_read(uri_string)
     open(uri_string).read
@@ -76,7 +76,7 @@ class LogStash::Codecs::Avro < LogStash::Codecs::Base
   def decode(data)
     datum = StringIO.new(data)
 
-    if strip_headers == "true"
+    if strip_headers
       if data.length < 5
         @logger.error('message is too small to decode')
       end
@@ -85,6 +85,8 @@ class LogStash::Codecs::Avro < LogStash::Codecs::Base
         @logger.error('message does not start with magic byte')
       end
     end
+
+    # can still get to here with strip headers true
 
     decoder = Avro::IO::BinaryDecoder.new(datum)
     datum_reader = Avro::IO::DatumReader.new(@schema)

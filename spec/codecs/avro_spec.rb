@@ -14,7 +14,7 @@ describe LogStash::Codecs::Avro do
   let(:config) {
     {
         "schema_uri" => avro_config['schema_uri'],
-        "strip_headers" => "false",
+        "strip_headers" => false,
     }
   }
 
@@ -55,7 +55,7 @@ describe LogStash::Codecs::Avro do
       let(:settings) {
         {
             "schema_uri" => avro_config['schema_uri'],
-            "strip_headers" => "true",
+            "strip_headers" => true,
         }
       }
       subject do
