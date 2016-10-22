@@ -49,6 +49,7 @@ input {
     topic_id => 'test_topic'
       codec => avro {
         schema_uri => 'tweet.avsc'
+        strip_headers => false
       }
   }
 }

@@ -44,6 +44,7 @@ require "logstash/util"
 #   ...
 # }
 # ----------------------------------
+
 class LogStash::Codecs::Avro < LogStash::Codecs::Base
   config_name "avro"
 
@@ -55,6 +56,12 @@ class LogStash::Codecs::Avro < LogStash::Codecs::Base
   # * http - `http://example.com/schema.avsc`
   # * file - `/path/to/schema.avsc`
   config :schema_uri, :validate => :string, :required => true
+
+  # strip the magic byte and schema_id from the message
+  # defaults to false
+  config :strip_headers, :validate => :boolean, :default => false
+
+  MAGIC_BYTE = 0
 
   def open_and_read(uri_string)
     open(uri_string).read
@@ -68,6 +75,7 @@ class LogStash::Codecs::Avro < LogStash::Codecs::Base
   public
   def decode(data)
     datum = StringIO.new(data)
+    unpack(datum, data) if strip_headers
     decoder = Avro::IO::BinaryDecoder.new(datum)
     datum_reader = Avro::IO::DatumReader.new(@schema)
     yield LogStash::Event.new(datum_reader.read(decoder))
@@ -80,5 +88,15 @@ class LogStash::Codecs::Avro < LogStash::Codecs::Base
     encoder = Avro::IO::BinaryEncoder.new(buffer)
     dw.write(event.to_hash, encoder)
     @on_event.call(event, buffer.string)
+  end
+
+  private
+  def unpack(datum, data)
+    if data.length > 5
+      magic_byte, schema_id = datum.read(5).unpack("cI>")
+      if magic_byte != MAGIC_BYTE
+        @logger.error('message does not start with magic byte')
+      end
+    end
   end
 end

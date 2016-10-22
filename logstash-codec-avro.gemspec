@@ -1,7 +1,7 @@
 Gem::Specification.new do |s|
 
   s.name            = 'logstash-codec-avro'
-  s.version         = '3.0.0'
+  s.version         = '3.0.1'
   s.platform        = 'java'
   s.licenses        = ['Apache-2.0']
   s.summary         = "Encode and decode avro formatted data"

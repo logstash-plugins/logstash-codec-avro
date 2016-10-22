@@ -11,24 +11,80 @@ describe LogStash::Codecs::Avro do
                                    {"name": "bar", "type": "int"}]}'}}
   let (:test_event) { LogStash::Event.new({"foo" => "hello", "bar" => 10}) }
 
+  let(:config) {
+    {
+        "schema_uri" => avro_config['schema_uri'],
+        "strip_headers" => false,
+    }
+  }
+
   subject do
     allow_any_instance_of(LogStash::Codecs::Avro).to \
       receive(:open_and_read).and_return(avro_config['schema_uri'])
-    next LogStash::Codecs::Avro.new(avro_config)
+    next LogStash::Codecs::Avro.new(config)
   end
 
-  context "#decode" do
-    it "should return an LogStash::Event from avro data" do
-      schema = Avro::Schema.parse(avro_config['schema_uri'])
-      dw = Avro::IO::DatumWriter.new(schema)
-      buffer = StringIO.new
-      encoder = Avro::IO::BinaryEncoder.new(buffer)
-      dw.write(test_event.to_hash, encoder)
+  describe "#decode" do
+    subject do
+      allow_any_instance_of(LogStash::Codecs::Avro).to \
+      receive(:open_and_read).and_return(avro_config['schema_uri'])
+      next LogStash::Codecs::Avro.new(config)
+    end
 
-      subject.decode(buffer.string) do |event|
-        insist { event.is_a? LogStash::Event }
-        insist { event.get("foo") } == test_event.get("foo")
-        insist { event.get("bar") } == test_event.get("bar")
+    context "with strip headers false" do
+      it "should return an LogStash::Event from avro data" do
+        schema = Avro::Schema.parse(avro_config['schema_uri'])
+        dw = Avro::IO::DatumWriter.new(schema)
+        buffer = StringIO.new
+        encoder = Avro::IO::BinaryEncoder.new(buffer)
+        dw.write(test_event.to_hash, encoder)
+        got_event = false
+
+        subject.decode(buffer.string) do |event|
+          insist { event.is_a? LogStash::Event }
+          insist { event.get("foo") } == test_event.get("foo")
+          insist { event.get("bar") } == test_event.get("bar")
+          got_event = true
+        end
+
+        insist { got_event }
+      end
+    end
+
+    context "with strip headers true" do
+      let(:settings) {
+        {
+            "schema_uri" => avro_config['schema_uri'],
+            "strip_headers" => true,
+        }
+      }
+      subject do
+        allow_any_instance_of(LogStash::Codecs::Avro).to \
+        receive(:open_and_read).and_return(avro_config['schema_uri'])
+        next LogStash::Codecs::Avro.new(settings)
+      end
+
+      it "should return an LogStash::Event from avro data and strip headers" do
+        schema = Avro::Schema.parse(avro_config['schema_uri'])
+        dw = Avro::IO::DatumWriter.new(schema)
+        buffer = StringIO.new
+
+        headers = [LogStash::Codecs::Avro::MAGIC_BYTE,1234]
+        header = headers.pack("cI>")
+        buffer.write(header)
+
+        encoder = Avro::IO::BinaryEncoder.new(buffer)
+        dw.write(test_event.to_hash, encoder)
+        got_event = false
+
+        subject.decode(buffer.string) do |event|
+          insist { event.is_a? LogStash::Event }
+          insist { event.get("foo") } == test_event.get("foo")
+          insist { event.get("bar") } == test_event.get("bar")
+          got_event = true
+        end
+
+        insist { got_event }
       end
     end
   end

@@ -1,3 +1,6 @@
+## 3.0.1
+- add support for decoding Kafka events with Magic Byte and Schema Id headers
+
 ## 3.0.0
  - breaking: Update to new Event API
 
