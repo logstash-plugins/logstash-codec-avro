@@ -31,6 +31,21 @@ describe LogStash::Codecs::Avro do
         insist { event.get("bar") } == test_event.get("bar")
       end
     end
+
+    it "should throw exception if decoding fails" do
+      expect { subject.decode("not avro") { |_| } }.to raise_error NoMethodError
+    end
+  end
+
+  context "#decode with tag_on_failure" do
+    let (:avro_config) { super.merge("tag_on_failure" => true) }
+
+    it "should tag event on failure" do
+      subject.decode("not avro") do |event|
+        insist { event.is_a? LogStash::Event }
+        insist { event.get("tags") } == ["_avroparsefailure"]
+      end
+    end
   end
 
   context "#encode" do
