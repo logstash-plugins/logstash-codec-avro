@@ -56,6 +56,9 @@ class LogStash::Codecs::Avro < LogStash::Codecs::Base
   # * file - `/path/to/schema.avsc`
   config :schema_uri, :validate => :string, :required => true
 
+  # tag events with `_avroparsefailure` when decode fails
+  config :tag_on_failure, :validate => :boolean, :default => false
+
   def open_and_read(uri_string)
     open(uri_string).read
   end
@@ -71,6 +74,13 @@ class LogStash::Codecs::Avro < LogStash::Codecs::Base
     decoder = Avro::IO::BinaryDecoder.new(datum)
     datum_reader = Avro::IO::DatumReader.new(@schema)
     yield LogStash::Event.new(datum_reader.read(decoder))
+  rescue => e
+    if tag_on_failure
+      @logger.error("Avro parse error, original data now in message field", :error => e)
+      yield LogStash::Event.new("message" => data, "tags" => ["_avroparsefailure"])
+    else
+      raise e
+    end
   end
 
   public
