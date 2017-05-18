@@ -1,6 +1,7 @@
 # encoding: utf-8
 require "open-uri"
 require "avro"
+require "base64"
 require "logstash/codecs/base"
 require "logstash/event"
 require "logstash/timestamp"
@@ -70,7 +71,7 @@ class LogStash::Codecs::Avro < LogStash::Codecs::Base
 
   public
   def decode(data)
-    datum = StringIO.new(data)
+    datum = StringIO.new(Base64.strict_decode64(data))
     decoder = Avro::IO::BinaryDecoder.new(datum)
     datum_reader = Avro::IO::DatumReader.new(@schema)
     yield LogStash::Event.new(datum_reader.read(decoder))
@@ -89,6 +90,6 @@ class LogStash::Codecs::Avro < LogStash::Codecs::Base
     buffer = StringIO.new
     encoder = Avro::IO::BinaryEncoder.new(buffer)
     dw.write(event.to_hash, encoder)
-    @on_event.call(event, buffer.string)
+    @on_event.call(event, Base64.strict_encode64(buffer.string))
   end
 end
