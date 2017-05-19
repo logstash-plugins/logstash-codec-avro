@@ -1,3 +1,6 @@
+## 3.2.0
+ - Fixed an issue with the encoding that prevented certain fields from being serialized in a way compatible with the Kafka plugins
+
 ## 3.1.0
  - Introduce `tag_on_failure` option to tag events with `_avroparsefailure` instead of throwing an exception when decoding
 
