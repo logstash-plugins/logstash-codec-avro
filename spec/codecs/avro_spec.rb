@@ -21,7 +21,7 @@ describe LogStash::Codecs::Avro do
     end
 
     context "#decode" do
-      it "should return an LogStash::Event from avro data" do
+      it "should return an LogStash::Event from raw and base64 encoded avro data" do
         schema = Avro::Schema.parse(avro_config['schema_uri'])
         dw = Avro::IO::DatumWriter.new(schema)
         buffer = StringIO.new
@@ -33,10 +33,15 @@ describe LogStash::Codecs::Avro do
           insist {event.get("foo")} == test_event.get("foo")
           insist {event.get("bar")} == test_event.get("bar")
         end
+        subject.decode(buffer.string) do |event|
+          insist {event.is_a? LogStash::Event}
+          insist {event.get("foo")} == test_event.get("foo")
+          insist {event.get("bar")} == test_event.get("bar")
+        end
       end
 
       it "should throw exception if decoding fails" do
-        expect {subject.decode("not avro") {|_| }}.to raise_error ArgumentError
+        expect {subject.decode("not avro") {|_| }}.to raise_error NoMethodError
       end
     end
 
