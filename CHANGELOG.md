@@ -1,3 +1,6 @@
+## 3.2.2
+  - Fix some documentation issues
+
 ## 3.2.0
  - Fixed an issue with the encoding that prevented certain fields from being serialized in a way compatible with the Kafka plugins
 
