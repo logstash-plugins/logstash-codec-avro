@@ -59,6 +59,9 @@ class LogStash::Codecs::Avro < LogStash::Codecs::Base
 
   # tag events with `_avroparsefailure` when decode fails
   config :tag_on_failure, :validate => :boolean, :default => false
+  
+  # make base64 encoding optional
+  config :base64_encoding, :validate => :boolean, :default => true
 
   def open_and_read(uri_string)
     open(uri_string).read
@@ -71,7 +74,11 @@ class LogStash::Codecs::Avro < LogStash::Codecs::Base
 
   public
   def decode(data)
-    datum = StringIO.new(Base64.strict_decode64(data)) rescue StringIO.new(data)
+    if base64_encoding == "true"
+      datum = StringIO.new(Base64.strict_decode64(data)) rescue StringIO.new(data)
+    else
+      datum = StringIO.new(data)
+    end
     decoder = Avro::IO::BinaryDecoder.new(datum)
     datum_reader = Avro::IO::DatumReader.new(@schema)
     yield LogStash::Event.new(datum_reader.read(decoder))
@@ -90,6 +97,10 @@ class LogStash::Codecs::Avro < LogStash::Codecs::Base
     buffer = StringIO.new
     encoder = Avro::IO::BinaryEncoder.new(buffer)
     dw.write(event.to_hash, encoder)
-    @on_event.call(event, Base64.strict_encode64(buffer.string))
+    if base64_encoding == "true"
+      @on_event.call(event, Base64.strict_encode64(buffer.string))
+    else
+      @on_event.call(event, buffer.string)
+    end
   end
 end
