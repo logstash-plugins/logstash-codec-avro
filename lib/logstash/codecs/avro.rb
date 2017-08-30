@@ -74,7 +74,7 @@ class LogStash::Codecs::Avro < LogStash::Codecs::Base
 
   public
   def decode(data)
-    if base64_encoding == "true"
+    if base64_encoding == true
       datum = StringIO.new(Base64.strict_decode64(data)) rescue StringIO.new(data)
     else
       datum = StringIO.new(data)
@@ -97,7 +97,7 @@ class LogStash::Codecs::Avro < LogStash::Codecs::Base
     buffer = StringIO.new
     encoder = Avro::IO::BinaryEncoder.new(buffer)
     dw.write(event.to_hash, encoder)
-    if base64_encoding == "true"
+    if base64_encoding == true
       @on_event.call(event, Base64.strict_encode64(buffer.string))
     else
       @on_event.call(event, buffer.string)
