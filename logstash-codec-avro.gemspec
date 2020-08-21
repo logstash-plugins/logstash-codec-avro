@@ -1,7 +1,7 @@
 Gem::Specification.new do |s|
 
   s.name            = 'logstash-codec-avro'
-  s.version         = '3.2.3'
+  s.version         = '3.2.4'
   s.platform        = 'java'
   s.licenses        = ['Apache-2.0']
   s.summary         = "Reads serialized Avro records as Logstash events"

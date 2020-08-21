@@ -1,3 +1,6 @@
+## 3.2.4
+  - [DOC] Add clarifications on partial deserialization [#35](https://github.com/logstash-plugins/logstash-codec-avro/pull/35)
+
 ## 3.2.3
   - Update gemspec summary
 
