@@ -1,3 +1,6 @@
+## 3.2.4
+  - Add clarifications on partial deserialization in documentation
+
 ## 3.2.3
   - Update gemspec summary
 
