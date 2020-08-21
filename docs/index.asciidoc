@@ -41,10 +41,13 @@ Avro files. Avro files have a unique format that must be handled upon input.
 .Partial deserialization
 [NOTE]
 ================================================================================
-This codec doesn't support partial deserialization of arbitrary fields providing
-a schema containing a subset of the fields.
-Partial deserialization might work only if you specify a schema which contains
-the first `N` fields of the writer schema (and in the same order).
+Avro format is known to support partial deserialization of arbitrary fields,
+providing a schema containing a subset of the schema which was used to serialize
+the data.
+This codec *doesn't support partial deserialization of arbitrary fields*.
+Partial deserialization _might_ work only when providing a schema which contains
+the first `N` fields of the schema used to serialize the data (and 
+in the same order).
 ================================================================================
 
 ==== Usage
