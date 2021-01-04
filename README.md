@@ -1,6 +1,6 @@
 # Logstash Plugin
 
-[![Travis Build Status](https://travis-ci.org/logstash-plugins/logstash-codec-avro.svg)](https://travis-ci.org/logstash-plugins/logstash-codec-avro)
+[![Travis Build Status](https://travis-ci.com/logstash-plugins/logstash-codec-avro.svg)](https://travis-ci.com/logstash-plugins/logstash-codec-avro)
 
 This is a plugin for [Logstash](https://github.com/elastic/logstash).
 
