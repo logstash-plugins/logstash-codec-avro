@@ -19,7 +19,8 @@ describe LogStash::Codecs::Avro, :ecs_compatibility_support do
                         {"type": "record", "name": "Test",
                         "fields": [{"name": "foo", "type": ["null", "string"]},
                                    {"name": "bar", "type": "int"}]}' }}
-      let (:test_event) {LogStash::Event.new({ "foo" => "hello", "bar" => 10 })}
+      let (:test_event_hash) { { "foo" => "hello", "bar" => 10 } }
+      let (:test_event) {LogStash::Event.new(test_event_hash)}
 
       subject do
         allow_any_instance_of(LogStash::Codecs::Avro).to \
@@ -39,13 +40,13 @@ describe LogStash::Codecs::Avro, :ecs_compatibility_support do
             insist {event.is_a? LogStash::Event}
             insist {event.get("foo")} == test_event.get("foo")
             insist {event.get("bar")} == test_event.get("bar")
-            expect(event.get('[event][original]')).not_to be_nil if ecs_compatibility != :disabled
+            expect(event.get('[event][original]')).to include(test_event_hash) if ecs_compatibility != :disabled
           end
           subject.decode(buffer.string) do |event|
             insist {event.is_a? LogStash::Event}
             insist {event.get("foo")} == test_event.get("foo")
             insist {event.get("bar")} == test_event.get("bar")
-            expect(event.get('[event][original]')).not_to be_nil if ecs_compatibility != :disabled
+            expect(event.get('[event][original]')).to include(test_event_hash) if ecs_compatibility != :disabled
           end
         end
 
@@ -65,6 +66,28 @@ describe LogStash::Codecs::Avro, :ecs_compatibility_support do
           subject.decode("not avro") do |event|
             insist {event.is_a? LogStash::Event}
             insist {event.get("tags")} == ["_avroparsefailure"]
+          end
+        end
+      end
+
+      context "#decode with target" do
+        let(:avro_target) { "avro_target" }
+        let (:avro_config) {{ 'schema_uri' => '
+                        {"type": "record", "name": "Test",
+                        "fields": [{"name": "foo", "type": ["null", "string"]},
+                                   {"name": "bar", "type": "int"}]}',
+                              'target' => avro_target}}
+
+        it "should return an LogStash::Event with content in target" do
+          schema = Avro::Schema.parse(avro_config['schema_uri'])
+          dw = Avro::IO::DatumWriter.new(schema)
+          buffer = StringIO.new
+          encoder = Avro::IO::BinaryEncoder.new(buffer)
+          dw.write(test_event.to_hash, encoder)
+
+          subject.decode(buffer.string) do |event|
+            insist {event.get("[#{avro_target}][foo]")} == test_event.get("foo")
+            insist {event.get("[#{avro_target}][bar]")} == test_event.get("bar")
           end
         end
       end
@@ -123,6 +146,7 @@ describe LogStash::Codecs::Avro, :ecs_compatibility_support do
           end
         end
       end
+
     end
   end
 end

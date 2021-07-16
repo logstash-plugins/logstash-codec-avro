@@ -84,6 +84,7 @@ output {
 | <<plugins-{type}s-{plugin}-ecs_compatibility>> | <<string,string>>|No
 | <<plugins-{type}s-{plugin}-schema_uri>> |<<string,string>>|Yes
 | <<plugins-{type}s-{plugin}-tag_on_failure>> |<<boolean,boolean>>|No
+| <<plugins-{type}s-{plugin}-target>> |<<string,string>>|No
 |=======================================================================
 
 &nbsp;
@@ -121,4 +122,24 @@ example:
 
 tag events with `_avroparsefailure` when decode fails
 
+[id="plugins-{type}s-{plugin}-target"]
+===== `target`
 
+* Value type is <<string,string>>
+* There is no default value for this setting.
+
+Define the target field for placing the row values. If this setting is not
+set, the Avro data will be stored at the root (top level) of the event.
+
+For example, if you want data to be put under the `document` field:
+[source,ruby]
+----------------------------------
+input {
+  kafka {
+    codec => avro {
+        schema_uri => "/tmp/schema.avsc"
+        target => "[document]"
+    }
+  }
+}
+----------------------------------

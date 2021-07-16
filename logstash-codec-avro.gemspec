@@ -25,6 +25,7 @@ Gem::Specification.new do |s|
   s.add_runtime_dependency "avro"  #(Apache 2.0 license)
   s.add_runtime_dependency 'logstash-mixin-ecs_compatibility_support', '~> 1.3'
   s.add_runtime_dependency 'logstash-mixin-event_support', '~> 1.0'
+  s.add_runtime_dependency 'logstash-mixin-validator_support', '~> 1.0'
 
   s.add_development_dependency 'logstash-devutils'
   s.add_development_dependency 'insist'

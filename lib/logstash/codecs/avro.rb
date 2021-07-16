@@ -7,6 +7,8 @@ require "logstash/event"
 require "logstash/timestamp"
 require "logstash/util"
 require 'logstash/plugin_mixins/ecs_compatibility_support'
+require 'logstash/plugin_mixins/ecs_compatibility_support/target_check'
+require 'logstash/plugin_mixins/validator_support/field_reference_validation_adapter'
 require 'logstash/plugin_mixins/event_support/event_factory_adapter'
 require 'logstash/plugin_mixins/event_support/from_json_helper'
 
@@ -52,8 +54,11 @@ class LogStash::Codecs::Avro < LogStash::Codecs::Base
   config_name "avro"
 
   include LogStash::PluginMixins::ECSCompatibilitySupport(:disabled, :v1, :v8 => :v1)
+  include LogStash::PluginMixins::ECSCompatibilitySupport::TargetCheck
+
+  extend LogStash::PluginMixins::ValidatorSupport::FieldReferenceValidationAdapter
+
   include LogStash::PluginMixins::EventSupport::EventFactoryAdapter
-  include LogStash::PluginMixins::EventSupport::FromJsonHelper
 
   # schema path to fetch the schema from.
   # This can be a 'http' or 'file' scheme URI
@@ -65,6 +70,12 @@ class LogStash::Codecs::Avro < LogStash::Codecs::Base
 
   # tag events with `_avroparsefailure` when decode fails
   config :tag_on_failure, :validate => :boolean, :default => false
+
+  # Defines a target field for placing decoded fields.
+  # If this setting is omitted, data gets stored at the root (top level) of the event.
+  #
+  # NOTE: the target is only relevant while decoding data into a new event.
+  config :target, :validate => :field_reference
 
   def open_and_read(uri_string)
     open(uri_string).read
@@ -85,8 +96,9 @@ class LogStash::Codecs::Avro < LogStash::Codecs::Base
     datum = StringIO.new(Base64.strict_decode64(data)) rescue StringIO.new(data)
     decoder = Avro::IO::BinaryDecoder.new(datum)
     datum_reader = Avro::IO::DatumReader.new(@schema)
-    event = event_factory.new_event(datum_reader.read(decoder))
-    event.set(@original_field, data.dup.freeze) if @original_field
+    decoded = datum_reader.read(decoder)
+    event = targeted_event_factory.new_event(decoded)
+    event.set(@original_field, decoded.dup.freeze) if @original_field
     yield event
   rescue => e
     if tag_on_failure
