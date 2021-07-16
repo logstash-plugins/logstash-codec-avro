@@ -1,3 +1,6 @@
+## 3.3.0
+  - Add ECS support. Add target option and event.original [#36](https://github.com/logstash-plugins/logstash-codec-avro/pull/36)
+
 ## 3.2.4
   - [DOC] Add clarifications on partial deserialization [#35](https://github.com/logstash-plugins/logstash-codec-avro/pull/35)
 
