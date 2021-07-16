@@ -96,9 +96,8 @@ class LogStash::Codecs::Avro < LogStash::Codecs::Base
     datum = StringIO.new(Base64.strict_decode64(data)) rescue StringIO.new(data)
     decoder = Avro::IO::BinaryDecoder.new(datum)
     datum_reader = Avro::IO::DatumReader.new(@schema)
-    decoded = datum_reader.read(decoder)
-    event = targeted_event_factory.new_event(decoded)
-    event.set(@original_field, decoded.dup.freeze) if @original_field
+    event = targeted_event_factory.new_event(datum_reader.read(decoder))
+    event.set(@original_field, data.dup.freeze) if @original_field
     yield event
   rescue => e
     if tag_on_failure
