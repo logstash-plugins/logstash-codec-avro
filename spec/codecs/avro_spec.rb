@@ -7,7 +7,7 @@ require 'logstash/codecs/avro'
 require 'logstash/event'
 require 'logstash/plugin_mixins/ecs_compatibility_support/spec_helper'
 
-describe LogStash::Codecs::Avro, :ecs_compatibility_support do
+describe LogStash::Codecs::Avro, :ecs_compatibility_support, :aggregate_failures do
 
   ecs_compatibility_matrix(:disabled, :v1, :v8 => :v1) do |ecs_select|
     before(:each) do
