@@ -40,13 +40,13 @@ describe LogStash::Codecs::Avro, :ecs_compatibility_support, :aggregate_failures
             insist {event.is_a? LogStash::Event}
             insist {event.get("foo")} == test_event.get("foo")
             insist {event.get("bar")} == test_event.get("bar")
-            expect(event.get('[event][original]')).not_to be_nil if ecs_compatibility != :disabled
+            expect(event.get('[event][original]')).to eq(Base64.strict_encode64(buffer.string)) if ecs_compatibility != :disabled
           end
           subject.decode(buffer.string) do |event|
             insist {event.is_a? LogStash::Event}
             insist {event.get("foo")} == test_event.get("foo")
             insist {event.get("bar")} == test_event.get("bar")
-            expect(event.get('[event][original]')).not_to be_nil if ecs_compatibility != :disabled
+            expect(event.get('[event][original]')).to eq(buffer.string) if ecs_compatibility != :disabled
           end
         end
 
