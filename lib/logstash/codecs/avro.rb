@@ -10,7 +10,6 @@ require 'logstash/plugin_mixins/ecs_compatibility_support'
 require 'logstash/plugin_mixins/ecs_compatibility_support/target_check'
 require 'logstash/plugin_mixins/validator_support/field_reference_validation_adapter'
 require 'logstash/plugin_mixins/event_support/event_factory_adapter'
-require 'logstash/plugin_mixins/event_support/from_json_helper'
 
 # Read serialized Avro records as Logstash events
 #
