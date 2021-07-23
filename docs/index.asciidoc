@@ -127,11 +127,12 @@ tag events with `_avroparsefailure` when decode fails
 
 * Value type is <<string,string>>
 * There is no default value for this setting.
+* This is only relevant when decode data into an event
 
-Define the target field for placing the row values. If this setting is not
+Define the target field for placing the values. If this setting is not
 set, the Avro data will be stored at the root (top level) of the event.
 
-For example, if you want data to be put under the `document` field:
+*Example*
 [source,ruby]
 ----------------------------------
 input {
