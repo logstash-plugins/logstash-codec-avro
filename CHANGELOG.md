@@ -1,3 +1,6 @@
+## 3.3.1
+  - Pin avro gem to 1.10.x, as 1.11+ requires ruby 2.6+ [#37](https://github.com/logstash-plugins/logstash-codec-avro/pull/37)
+
 ## 3.3.0
   - Add ECS support. Add target option and event.original [#36](https://github.com/logstash-plugins/logstash-codec-avro/pull/36)
 
