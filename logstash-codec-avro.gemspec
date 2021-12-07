@@ -1,7 +1,7 @@
 Gem::Specification.new do |s|
 
   s.name            = 'logstash-codec-avro'
-  s.version         = '3.3.0'
+  s.version         = '3.3.1'
   s.platform        = 'java'
   s.licenses        = ['Apache-2.0']
   s.summary         = "Reads serialized Avro records as Logstash events"
@@ -22,7 +22,7 @@ Gem::Specification.new do |s|
 
   # Gem dependencies
   s.add_runtime_dependency "logstash-core-plugin-api", ">= 1.60", "<= 2.99"
-  s.add_runtime_dependency "avro"  #(Apache 2.0 license)
+  s.add_runtime_dependency "avro", "~> 1.10.2" #(Apache 2.0 license)
   s.add_runtime_dependency 'logstash-mixin-ecs_compatibility_support', '~> 1.3'
   s.add_runtime_dependency 'logstash-mixin-event_support', '~> 1.0'
   s.add_runtime_dependency 'logstash-mixin-validator_support', '~> 1.0'
