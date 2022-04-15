@@ -81,6 +81,7 @@ output {
 [cols="<,<,<",options="header",]
 |=======================================================================
 |Setting |Input type|Required
+| <<plugins-{type}s-{plugin}-base64_encoding>> | <<boolean,boolean>>|No
 | <<plugins-{type}s-{plugin}-ecs_compatibility>> | <<string,string>>|No
 | <<plugins-{type}s-{plugin}-schema_uri>> |<<string,string>>|Yes
 | <<plugins-{type}s-{plugin}-tag_on_failure>> |<<boolean,boolean>>|No
@@ -98,6 +99,16 @@ output {
 ** `v1`,`v8`: Elastic Common Schema compliant behavior (`[event][original]` is also added)
 
 Controls this plugin's compatibility with the {ecs-ref}[Elastic Common Schema (ECS)].
+
+[id="plugins-{type}s-{plugin}-base64_encoding"]
+===== `base64_encoding`
+
+* Value type is <<boolean,boolean>>
+* Default value is `true`
+
+Select whether use or not the base64 encoding.
+When it's `true` and plain message arrives then it's however decoded.
+Raises an error if it's `false` and base64 encodec message arrives.
 
 
 [id="plugins-{type}s-{plugin}-schema_uri"]

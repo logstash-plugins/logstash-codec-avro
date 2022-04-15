@@ -55,6 +55,35 @@ describe LogStash::Codecs::Avro, :ecs_compatibility_support, :aggregate_failures
         end
       end
 
+      context "base64_encoding is false" do
+        let (:avro_config) { super().merge('base64_encoding' => false) }
+
+        it "should return an LogStash::Event from raw and base64 encoded avro data" do
+          schema = Avro::Schema.parse(avro_config['schema_uri'])
+          dw = Avro::IO::DatumWriter.new(schema)
+          buffer = StringIO.new
+          encoder = Avro::IO::BinaryEncoder.new(buffer)
+          dw.write(test_event.to_hash, encoder)
+
+          subject.decode(buffer.string) do |event|
+            expect(event).to be_a_kind_of(LogStash::Event)
+            expect(event.get("foo")).to eq(test_event.get("foo"))
+            expect(event.get("bar")).to eq(test_event.get("bar"))
+            expect(event.get('[event][original]')).to eq(buffer.string) if ecs_compatibility != :disabled
+          end
+        end
+
+        it "should raise an error if base64 encoded data is provided" do
+          schema = Avro::Schema.parse(avro_config['schema_uri'])
+          dw = Avro::IO::DatumWriter.new(schema)
+          buffer = StringIO.new
+          encoder = Avro::IO::BinaryEncoder.new(buffer)
+          dw.write(test_event.to_hash, encoder)
+
+          expect {subject.decode(Base64.strict_encode64(buffer.string))}.to raise_error
+        end
+      end
+
       context "#decode with tag_on_failure" do
         let (:avro_config) {{ 'schema_uri' => '
                         {"type": "record", "name": "Test",
@@ -109,6 +138,28 @@ describe LogStash::Codecs::Avro, :ecs_compatibility_support, :aggregate_failures
           end
           subject.encode(test_event)
           insist {got_event}
+        end
+
+        context "base64_encoding is false" do
+          let (:avro_config) { super().merge('base64_encoding' => false) }
+
+          it "should return avro data from a LogStash::Event not base64 encoded" do
+            got_event = false
+            subject.on_event do |event, data|
+              schema = Avro::Schema.parse(avro_config['schema_uri'])
+              datum = StringIO.new(data)
+              decoder = Avro::IO::BinaryDecoder.new(datum)
+              datum_reader = Avro::IO::DatumReader.new(schema)
+              record = datum_reader.read(decoder)
+
+              expect(event).to be_a_kind_of(LogStash::Event)
+              expect(event.get("foo")).to eq(test_event.get("foo"))
+              expect(event.get("bar")).to eq(test_event.get("bar"))
+              got_event = true
+            end
+            subject.encode(test_event)
+            expect(got_event).to be true
+          end
         end
 
         context "binary data" do

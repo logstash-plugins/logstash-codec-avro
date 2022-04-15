@@ -59,6 +59,9 @@ class LogStash::Codecs::Avro < LogStash::Codecs::Base
 
   include LogStash::PluginMixins::EventSupport::EventFactoryAdapter
 
+  # make base64 encoding optional
+  config :base64_encoding, :validate => :boolean, :default => true
+
   # schema path to fetch the schema from.
   # This can be a 'http' or 'file' scheme URI
   # example:
@@ -70,9 +73,6 @@ class LogStash::Codecs::Avro < LogStash::Codecs::Base
   # tag events with `_avroparsefailure` when decode fails
   config :tag_on_failure, :validate => :boolean, :default => false
 
-  # make base64 encoding optional
-  config :base64_encoding, :validate => :boolean, :default => true
-  
   # Defines a target field for placing decoded fields.
   # If this setting is omitted, data gets stored at the root (top level) of the event.
   #
@@ -95,7 +95,7 @@ class LogStash::Codecs::Avro < LogStash::Codecs::Base
 
   public
   def decode(data)
-    if base64_encoding == true
+    if base64_encoding
       datum = StringIO.new(Base64.strict_decode64(data)) rescue StringIO.new(data)
     else
       datum = StringIO.new(data)
@@ -120,7 +120,7 @@ class LogStash::Codecs::Avro < LogStash::Codecs::Base
     buffer = StringIO.new
     encoder = Avro::IO::BinaryEncoder.new(buffer)
     dw.write(event.to_hash, encoder)
-    if base64_encoding == true
+    if base64_encoding
       @on_event.call(event, Base64.strict_encode64(buffer.string))
     else
       @on_event.call(event, buffer.string)
