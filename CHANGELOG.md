@@ -1,5 +1,5 @@
 ## 3.4.0
-  - Add `base64_encoding` option to disable the base64 encoding of Avro payload [#39](https://github.com/logstash-plugins/logstash-codec-avro/pull/39)
+  - Add `encoding` option to select the encoding of Avro payload, could be `binary` or `base64` [#39](https://github.com/logstash-plugins/logstash-codec-avro/pull/39)
 
 ## 3.3.1
   - Pin avro gem to 1.10.x, as 1.11+ requires ruby 2.6+ [#37](https://github.com/logstash-plugins/logstash-codec-avro/pull/37)

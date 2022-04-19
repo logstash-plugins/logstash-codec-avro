@@ -55,8 +55,8 @@ describe LogStash::Codecs::Avro, :ecs_compatibility_support, :aggregate_failures
         end
       end
 
-      context "base64_encoding is false" do
-        let (:avro_config) { super().merge('base64_encoding' => false) }
+      context "with binary encoding" do
+        let (:avro_config) { super().merge('encoding' => 'binary') }
 
         it "should return an LogStash::Event from raw and base64 encoded avro data" do
           schema = Avro::Schema.parse(avro_config['schema_uri'])
@@ -140,8 +140,8 @@ describe LogStash::Codecs::Avro, :ecs_compatibility_support, :aggregate_failures
           insist {got_event}
         end
 
-        context "base64_encoding is false" do
-          let (:avro_config) { super().merge('base64_encoding' => false) }
+        context "with binary encoding" do
+          let (:avro_config) { super().merge('encoding' => 'binary') }
 
           it "should return avro data from a LogStash::Event not base64 encoded" do
             got_event = false
