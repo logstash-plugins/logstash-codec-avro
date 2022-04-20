@@ -62,9 +62,9 @@ class LogStash::Codecs::Avro < LogStash::Codecs::Base
   BINARY_ENCODING = "binary"
   BASE64_ENCODING = "base64"
 
-  # Select which encoding to use to represent Avro's payload.
-  # By default, it uses `base64`, however could be customized with `binary` to use the plain binary bytes.
-  # With `base64` encoding the raw binary bytes are converted to a `base64` encoded string.
+  # Set encoding for Avro's payload.
+  #  Use `base64` (default) encoding to convert the raw binary bytes to a `base64` encoded string.
+  #  Set this option to `binary` to use the plain binary bytes.
   config :encoding, :validate => [BINARY_ENCODING, BASE64_ENCODING], :default => BASE64_ENCODING
 
   # schema path to fetch the schema from.
