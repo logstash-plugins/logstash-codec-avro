@@ -59,8 +59,8 @@ class LogStash::Codecs::Avro < LogStash::Codecs::Base
 
   include LogStash::PluginMixins::EventSupport::EventFactoryAdapter
 
-  BINARY_ENCODING = "binary"
-  BASE64_ENCODING = "base64"
+  BINARY_ENCODING = "binary".freeze
+  BASE64_ENCODING = "base64".freeze
 
   # Set encoding for Avro's payload.
   #  Use `base64` (default) encoding to convert the raw binary bytes to a `base64` encoded string.
