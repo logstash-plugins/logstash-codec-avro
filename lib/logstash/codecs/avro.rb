@@ -59,6 +59,14 @@ class LogStash::Codecs::Avro < LogStash::Codecs::Base
 
   include LogStash::PluginMixins::EventSupport::EventFactoryAdapter
 
+  BINARY_ENCODING = "binary".freeze
+  BASE64_ENCODING = "base64".freeze
+
+  # Set encoding for Avro's payload.
+  #  Use `base64` (default) encoding to convert the raw binary bytes to a `base64` encoded string.
+  #  Set this option to `binary` to use the plain binary bytes.
+  config :encoding, :validate => [BINARY_ENCODING, BASE64_ENCODING], :default => BASE64_ENCODING
+
   # schema path to fetch the schema from.
   # This can be a 'http' or 'file' scheme URI
   # example:
@@ -92,7 +100,11 @@ class LogStash::Codecs::Avro < LogStash::Codecs::Base
 
   public
   def decode(data)
-    datum = StringIO.new(Base64.strict_decode64(data)) rescue StringIO.new(data)
+    if encoding == BASE64_ENCODING
+      datum = StringIO.new(Base64.strict_decode64(data)) rescue StringIO.new(data)
+    else
+      datum = StringIO.new(data)
+    end
     decoder = Avro::IO::BinaryDecoder.new(datum)
     datum_reader = Avro::IO::DatumReader.new(@schema)
     event = targeted_event_factory.new_event(datum_reader.read(decoder))
@@ -113,6 +125,10 @@ class LogStash::Codecs::Avro < LogStash::Codecs::Base
     buffer = StringIO.new
     encoder = Avro::IO::BinaryEncoder.new(buffer)
     dw.write(event.to_hash, encoder)
-    @on_event.call(event, Base64.strict_encode64(buffer.string))
+    if encoding == BASE64_ENCODING
+      @on_event.call(event, Base64.strict_encode64(buffer.string))
+    else
+      @on_event.call(event, buffer.string)
+    end  
   end
 end
