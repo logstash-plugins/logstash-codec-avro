@@ -85,7 +85,7 @@ class LogStash::Codecs::Avro < LogStash::Codecs::Base
   config :target, :validate => :field_reference
 
   def open_and_read(uri_string)
-    open(uri_string).read
+    URI.open(uri_string, &:read)
   end
 
   public
