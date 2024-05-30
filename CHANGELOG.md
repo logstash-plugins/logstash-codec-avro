@@ -1,3 +1,6 @@
+## 3.4.2
+  - Bump avro gem to 1.11.3 [#45](https://github.com/logstash-plugins/logstash-codec-avro/pull/45)
+
 ## 3.4.1
   - Fixes `(Errno::ENOENT) No such file or directory` error [#43](https://github.com/logstash-plugins/logstash-codec-avro/pull/43)
 
