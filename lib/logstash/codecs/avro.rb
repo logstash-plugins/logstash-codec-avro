@@ -1,5 +1,6 @@
 # encoding: utf-8
 require "open-uri"
+require "manticore"
 require "avro"
 require "base64"
 require "logstash/codecs/base"
@@ -84,9 +85,59 @@ class LogStash::Codecs::Avro < LogStash::Codecs::Base
   # NOTE: the target is only relevant while decoding data into a new event.
   config :target, :validate => :field_reference
 
-  def open_and_read(uri_string)
-    URI.open(uri_string, &:read)
-  end
+  # Proxy server URL for schema registry connections
+  config :proxy, :validate => :uri
+
+  # Username for HTTP basic authentication
+  config :username, :validate => :string
+
+  # Password for HTTP basic authentication
+  config :password, :validate => :password
+
+  # Enable SSL/TLS secured communication to remote schema registry
+  config :ssl_enabled, :validate => :boolean
+
+  # PEM-based SSL configuration (alternative to keystore/truststore)
+  # Path to PEM encoded certificate file for client authentication
+  config :ssl_certificate, :validate => :path
+
+  # Path to PEM encoded private key file for client authentication
+  config :ssl_key, :validate => :path
+
+  # Path to PEM encoded CA certificate file(s) for server verification
+  # Can be a single file or directory containing multiple CA certificates
+  config :ssl_certificate_authorities, :validate => :path
+
+  # Options to verify the server's certificate.
+  # "full": validates that the provided certificate has an issue date that’s within the not_before and not_after dates;
+  # chains to a trusted Certificate Authority (CA); has a hostname or IP address that matches the names within the certificate.
+  # "none": performs no certificate validation. Disabling this severely compromises security (https://www.cs.utexas.edu/~shmat/shmat_ccs12.pdf)
+  config :ssl_verification_mode, :validate => %w[full none], :default => 'full'
+
+  # The keystore path
+  config :ssl_keystore_path, :validate => :path
+
+  # The keystore password
+  config :ssl_keystore_password, :validate => :password
+
+  # Keystore type (JKS or PKCS12). Defaults to JKS.
+  config :ssl_keystore_type, :validate => %w[JKS PKCS12], :default => "JKS"
+
+  # The truststore path
+  config :ssl_truststore_path, :validate => :path
+
+  # The truststore password
+  config :ssl_truststore_password, :validate => :password
+
+  # Truststore type (JKS or PKCS12). Defaults to JKS.
+  config :ssl_truststore_type, :validate => %w[JKS PKCS12], :default => "JKS"
+
+  # The list of cipher suites to use, listed by priorities.
+  # Supported cipher suites vary depending on which version of Java is used.
+  config :ssl_cipher_suites, :validate => :string, :list => true
+
+  # SSL supported protocols
+  config :ssl_supported_protocols, :validate => %w[TLSv1.1 TLSv1.2 TLSv1.3], :default => [], :list => true
 
   public
   def initialize(*params)
@@ -95,7 +146,7 @@ class LogStash::Codecs::Avro < LogStash::Codecs::Base
   end
 
   def register
-    @schema = Avro::Schema.parse(open_and_read(schema_uri))
+    @schema = Avro::Schema.parse(fetch_schema(schema_uri))
   end
 
   public
@@ -130,5 +181,150 @@ class LogStash::Codecs::Avro < LogStash::Codecs::Base
     else
       @on_event.call(event, buffer.string)
     end  
+  end
+
+  private
+  def fetch_schema(uri_string)
+    http_connection = uri_string.start_with?('http://')
+    https_connection = uri_string.start_with?('https://')
+
+    if http_connection
+      ssl_config_provided = original_params.keys.select {|k| k.start_with?("ssl_") && k != "ssl_enabled" }
+      if ssl_config_provided.any?
+        raise_config_error! "When SSL is disabled, the following provided parameters are not allowed: #{ssl_config_provided}"
+      end
+
+      credentials_configured = @username && @password
+      @logger.warn("Credentials are being sent over unencrypted HTTP. This may bring security risk.") if credentials_configured && http_connection
+      fetch_remote_schema(uri_string)
+    elsif https_connection
+      validate_ssl_settings!
+      fetch_remote_schema(uri_string)
+    else
+      # local schema
+      URI.open(uri_string, &:read)
+    end
+  end
+
+  def fetch_remote_schema(uri_string)
+    client_options = {}
+
+    unless @proxy&.empty?
+      client_options[:proxy] = @proxy.to_s
+    end
+
+    basic_auth_options = build_basic_auth
+    client_options[:auth] = basic_auth_options unless basic_auth_options.empty?
+
+    if @ssl_enabled
+      ssl_options = build_ssl_options
+      client_options[:ssl] = ssl_options unless ssl_options.empty?
+    end
+
+    client = Manticore::Client.new(client_options)
+    response = client.get(uri_string).call
+
+    unless response.code == 200
+      raise "HTTP request failed: #{response.code} #{response.message}"
+    end
+
+    response.body
+  ensure
+    client.close if client
+  end
+
+  def build_basic_auth
+    if !@username && !@password
+      return {}
+    end
+
+    raise LogStash::ConfigurationError, "`username` requires `password`" if @username && !@password
+    raise LogStash::ConfigurationError, "`password` is not allowed unless `username` is specified" if !@username && @password
+
+    if @username && @password
+      raise LogStash::ConfigurationError, "Empty `username` or `password` is not allowed" if @username.empty? || @password.value.empty?
+    end
+
+    {:user => @username, :password => @password.value}
+  end
+
+  def validate_ssl_settings!
+    @ssl_enabled = true if @ssl_enabled.nil?
+    @ssl_verification_mode = "full".freeze if @ssl_verification_mode.nil?
+
+    # optional: presenting our identity
+    raise_config_error! "`ssl_certificate` and `ssl_keystore_path` cannot be used together." if @ssl_certificate && @ssl_keystore_path
+    raise_config_error! "`ssl_certificate` requires `ssl_key`" if @ssl_certificate && !@ssl_key
+    ensure_readable_and_non_writable! "ssl_certificate", @ssl_certificate if @ssl_certificate
+
+     raise_config_error! "`ssl_key` is not allowed unless `ssl_certificate` is specified" if @ssl_key && !@ssl_certificate
+     ensure_readable_and_non_writable! "ssl_key", @ssl_key if @ssl_key
+
+    raise_config_error! "`ssl_keystore_path` requires `ssl_keystore_password`" if @ssl_keystore_path && !@ssl_keystore_password
+    raise_config_error! "`ssl_keystore_password` is not allowed unless `ssl_keystore_path` is specified" if @ssl_keystore_password && !@ssl_keystore_path
+    raise_config_error! "`ssl_keystore_password` cannot be empty" if @ssl_keystore_password && @ssl_keystore_password.value.empty?
+    raise_config_error! "`ssl_keystore_type` is not allowed unless `ssl_keystore_path` is specified" if @ssl_keystore_type && !@ssl_keystore_path
+
+    ensure_readable_and_non_writable! "ssl_keystore_path", @ssl_keystore_path if @ssl_keystore_path
+
+    # establishing trust of the server we connect to
+    # system-provided trust requires verification mode enabled
+    if @ssl_verification_mode == "none"
+      raise_config_error! "`ssl_truststore_path` requires `ssl_verification_mode` to be either `full`" if @ssl_truststore_path
+      raise_config_error! "`ssl_truststore_password` requires `ssl_truststore_path` and `ssl_verification_mode => 'full'`" if @ssl_truststore_password
+      raise_config_error! "`ssl_certificate_authorities` requires `ssl_verification_mode` to be `full`" if @ssl_certificate_authorities
+    end
+
+    raise_config_error! "`ssl_truststore_path` and `ssl_certificate_authorities` cannot be used together." if @ssl_truststore_path && @ssl_certificate_authorities
+    raise_config_error! "`ssl_truststore_path` requires `ssl_truststore_password`" if @ssl_truststore_path && !@ssl_truststore_password
+    ensure_readable_and_non_writable! "ssl_truststore_path", @ssl_truststore_path if @ssl_truststore_path
+
+    raise_config_error! "`ssl_truststore_password` is not allowed unless `ssl_truststore_path` is specified" if !@ssl_truststore_path && @ssl_truststore_password
+    raise_config_error! "`ssl_truststore_password` cannot be empty" if @ssl_truststore_password && @ssl_truststore_password.value.empty?
+
+    if !@ssl_truststore_path && @ssl_certificate_authorities&.empty?
+      raise_config_error! "`ssl_certificate_authorities` cannot be empty"
+    end
+
+    raise_config_error! "Multiple values on `ssl_certificate_authorities` are not supported by this plugin" if @ssl_certificate_authorities.size > 1
+    ensure_readable_and_non_writable! "ssl_certificate_authorities", @ssl_certificate_authorities&.first
+  end
+
+  def build_ssl_options
+    ssl_options = {}
+
+    ssl_options[:client_cert] = @ssl_certificate if @ssl_certificate
+    ssl_options[:client_key] = @ssl_key if @ssl_key
+
+    ssl_options[:ca_file] = @ssl_certificate_authorities&.first if @ssl_certificate_authorities
+
+    ssl_options[:cipher_suites] = @ssl_cipher_suites if @ssl_cipher_suites
+
+    ssl_options[:verify] = :default if @ssl_verification_mode == 'full'
+    ssl_options[:verify] = :disable if @ssl_verification_mode == 'none'
+
+    ssl_options[:keystore] = @ssl_keystore_path if @ssl_keystore_path
+    ssl_options[:keystore_password] = @ssl_keystore_password&.value if @ssl_keystore_path && @ssl_keystore_password
+    ssl_options[:keystore_type] = @ssl_keystore_type.downcase if @ssl_keystore_path && @ssl_keystore_type
+
+    ssl_options[:truststore] = @ssl_truststore_path if @ssl_truststore_path
+    ssl_options[:truststore_password] = @ssl_truststore_password&.value if @ssl_truststore_path && @ssl_truststore_password
+    ssl_options[:truststore_type] = @ssl_truststore_type.downcase if @ssl_truststore_path && @ssl_truststore_type
+
+    ssl_options[:protocols] = @ssl_supported_protocols if @ssl_supported_protocols && @ssl_supported_protocols&.any?
+
+    ssl_options
+  end
+
+  ##
+  # @param message [String]
+  # @raise [LogStash::ConfigurationError]
+  def raise_config_error!(message)
+    raise LogStash::ConfigurationError, message
+  end
+
+  def ensure_readable_and_non_writable!(name, path)
+    raise_config_error! "Specified #{name} #{path} path must be readable." unless File.readable?(path)
+    raise_config_error! "Specified #{name} #{path} path must not be writable." if File.writable?(path)
   end
 end

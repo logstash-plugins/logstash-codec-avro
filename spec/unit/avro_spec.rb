@@ -8,6 +8,13 @@ require 'logstash/event'
 require 'logstash/plugin_mixins/ecs_compatibility_support/spec_helper'
 
 describe LogStash::Codecs::Avro, :ecs_compatibility_support, :aggregate_failures do
+  let(:paths) do
+    {
+      # path has to be created, otherwise config :path validation fails
+      # and since we cannot control the chmod operations on paths, we should stub file readable? and writable? operations
+      :test_path => "spec/unit/resources/do_not_remove_path"
+    }
+  end
 
   ecs_compatibility_matrix(:disabled, :v1, :v8 => :v1) do |ecs_select|
     before(:each) do
@@ -24,7 +31,7 @@ describe LogStash::Codecs::Avro, :ecs_compatibility_support, :aggregate_failures
 
       subject do
         allow_any_instance_of(LogStash::Codecs::Avro).to \
-      receive(:open_and_read).and_return(avro_config['schema_uri'])
+      receive(:fetch_schema).and_return(avro_config['schema_uri'])
         next LogStash::Codecs::Avro.new(avro_config)
       end
 
@@ -177,7 +184,7 @@ describe LogStash::Codecs::Avro, :ecs_compatibility_support, :aggregate_failures
 
           subject do
             allow_any_instance_of(LogStash::Codecs::Avro).to \
-      receive(:open_and_read).and_return(avro_config['schema_uri'])
+      receive(:fetch_schema).and_return(avro_config['schema_uri'])
             next LogStash::Codecs::Avro.new(avro_config)
           end
 
@@ -198,6 +205,141 @@ describe LogStash::Codecs::Avro, :ecs_compatibility_support, :aggregate_failures
         end
       end
 
+    end
+
+    context "remote schema registry" do
+
+      context "basic authentication" do
+        let(:test_schema) do
+          '{"type": "record", "name": "Test",
+         "fields": [{"name": "foo", "type": ["null", "string"]},
+                    {"name": "bar", "type": "int"}]}'
+        end
+
+        before do
+          allow_any_instance_of(described_class).to receive(:fetch_remote_schema).and_return(test_schema)
+        end
+
+        subject do
+          LogStash::Codecs::Avro.new(avro_config)
+        end
+
+        context "with both username and password" do
+          let(:avro_config) do
+            {
+              'schema_uri' => 'http://schema-registry.example.com/schema.avsc',
+              'username' => 'test_user',
+              'password' => 'test_&^%$!password'
+            }
+          end
+
+          it "uses user and password" do
+            auth = subject.send(:build_basic_auth)
+            expect(auth).to eq({:user => 'test_user', :password => 'test_&^%$!password'})
+          end
+
+          it "includes valid credentials in auth hash" do
+            auth = subject.send(:build_basic_auth)
+            expect(auth[:user]).not_to be_empty
+            expect(auth[:password]).not_to be_empty
+          end
+        end
+
+        context "with only username" do
+          let(:avro_config) do
+            {
+              'schema_uri' => 'http://schema-registry.example.com/schema.avsc',
+              'username' => 'test_user'
+            }
+          end
+
+          it "raises ConfigurationError" do
+            expect { subject.send(:build_basic_auth) }.to raise_error(LogStash::ConfigurationError, /`username` requires `password`/)
+          end
+        end
+
+        context "with only password" do
+          let(:avro_config) do
+            {
+              'schema_uri' => 'http://schema-registry.example.com/schema.avsc',
+              'password' => 'test_&^%$!password'
+            }
+          end
+
+          it "raises ConfigurationError" do
+            expect { subject.send(:build_basic_auth) }.to raise_error(LogStash::ConfigurationError, /`password` is not allowed unless `username` is specified/)
+          end
+        end
+
+        context "with empty username" do
+          let(:avro_config) do
+            {
+              'schema_uri' => 'http://schema-registry.example.com/schema.avsc',
+              'username' => '',
+              'password' => 'test_&^%$!password'
+            }
+          end
+
+          it "raises ConfigurationError" do
+            expect { subject.send(:build_basic_auth) }.to raise_error(LogStash::ConfigurationError, /Empty `username` or `password` is not allowed/)
+          end
+        end
+
+        context "with empty password" do
+          let(:avro_config) do
+            {
+              'schema_uri' => 'http://schema-registry.example.com/schema.avsc',
+              'username' => 'test_user',
+              'password' => ''
+            }
+          end
+
+          it "raises ConfigurationError" do
+            expect { subject.send(:build_basic_auth) }.to raise_error(LogStash::ConfigurationError, /Empty `username` or `password` is not allowed/)
+          end
+        end
+
+        context "with neither username nor password" do
+          let(:avro_config) do
+            {
+              'schema_uri' => 'http://schema-registry.example.com/schema.avsc'
+            }
+          end
+
+          it "returns empty hash" do
+            auth = subject.send(:build_basic_auth)
+            expect(auth).to be_empty
+          end
+        end
+
+        context "with unsecure connection and credentials" do
+          let(:avro_config) do
+            {
+              'schema_uri' => 'http://schema-registry.example.com/schema.avsc',
+              'username' => 'test_user',
+              'password' => 'test_&^%$!password'
+            }
+          end
+
+          it "warns about credentials over unencrypted HTTP" do
+            expect(subject.logger).to receive(:warn).with(/Credentials are being sent over unencrypted HTTP/)
+            subject.register
+          end
+
+          it "still returns valid auth hash" do
+            allow(subject.logger).to receive(:warn)
+            auth = subject.send(:build_basic_auth)
+            expect(auth).to eq({:user => 'test_user', :password => 'test_&^%$!password'})
+          end
+        end
+      end
+
+      context "secured connection against schema registry" do
+
+        # TODO: Add unit tests for secured connection against schema registry
+        #   - specified and inferred ssl_enabled
+        #   - use "ssl_keystore_path" => paths[:test_path] to overcome File.readable?/writable? operations
+      end
     end
   end
 end

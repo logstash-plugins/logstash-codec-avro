@@ -1,3 +1,17 @@
+## 3.5.0
+  - Add SSL/TLS support for HTTPS schema registry connections
+    - Add `ssl_enabled` option to enable/disable SSL
+    - Add `ssl_certificate` and `ssl_key` options for PEM-based client authentication (unencrypted keys only)
+    - Add `ssl_certificate_authorities` option for PEM-based server certificate validation
+    - Add `ssl_verification_mode` option to control SSL verification (full, none)
+    - Add `ssl_cipher_suites` option to configure cipher suites
+    - Add `ssl_supported_protocols` option to configure TLS protocol versions (TLSv1.1, TLSv1.2, TLSv1.3)
+    - Add `ssl_truststore_path` and `ssl_truststore_password` options for server certificate validation (JKS/PKCS12)
+    - Add `ssl_keystore_path` and `ssl_keystore_password` options for mutual TLS authentication (JKS/PKCS12)
+    - Add `ssl_truststore_type` and `ssl_keystore_type` options (JKS or PKCS12)
+  - Add HTTP proxy support with `proxy` option
+  - Add HTTP basic authentication support with `username` and `password` options
+
 ## 3.4.1
   - Fixes `(Errno::ENOENT) No such file or directory` error [#43](https://github.com/logstash-plugins/logstash-codec-avro/pull/43)
 
