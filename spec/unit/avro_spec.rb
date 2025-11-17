@@ -335,10 +335,564 @@ describe LogStash::Codecs::Avro, :ecs_compatibility_support, :aggregate_failures
       end
 
       context "secured connection against schema registry" do
+        let(:test_schema) do
+          '{"type": "record", "name": "Test",
+         "fields": [{"name": "foo", "type": ["null", "string"]},
+                    {"name": "bar", "type": "int"}]}'
+        end
 
-        # TODO: Add unit tests for secured connection against schema registry
-        #   - specified and inferred ssl_enabled
-        #   - use "ssl_keystore_path" => paths[:test_path] to overcome File.readable?/writable? operations
+        before do
+          allow_any_instance_of(described_class).to receive(:fetch_remote_schema).and_return(test_schema)
+          allow(File).to receive(:readable?).and_return(true)
+          allow(File).to receive(:writable?).and_return(false)
+        end
+
+        subject do
+          LogStash::Codecs::Avro.new(avro_config)
+        end
+
+        context "explicit and inferred SSL" do
+          context "with explicit ssl_enabled => true" do
+            let(:avro_config) do
+              {
+                'schema_uri' => 'http://schema-registry.example.com/schema.avsc',
+                'ssl_enabled' => true
+              }
+            end
+
+            it "enables SSL" do
+              expect(subject.instance_variable_get(:@ssl_enabled)).to be true
+            end
+          end
+
+          context "with HTTPS URI (inferred ssl_enabled)" do
+            let(:avro_config) do
+              {
+                'schema_uri' => 'https://schema-registry.example.com/schema.avsc'
+              }
+            end
+
+            it "automatically enables SSL for HTTPS URIs" do
+              subject.register
+              expect(subject.instance_variable_get(:@ssl_enabled)).to be true
+            end
+          end
+
+          context "with explicit ssl_enabled => false" do
+            let(:avro_config) do
+              {
+                'schema_uri' => 'http://schema-registry.example.com/schema.avsc',
+                'ssl_enabled' => false
+              }
+            end
+
+            it "disables SSL" do
+              expect(subject.instance_variable_get(:@ssl_enabled)).to be false
+            end
+          end
+        end
+
+        context "SSL verification" do
+          context "with ssl_verification_mode => 'full'" do
+            let(:avro_config) do
+              {
+                'schema_uri' => 'https://schema-registry.example.com/schema.avsc',
+                'ssl_verification_mode' => 'full'
+              }
+            end
+
+            it "sets verification mode to full" do
+              expect(subject.instance_variable_get(:@ssl_verification_mode)).to eq('full')
+            end
+
+            it "builds SSL options with default verify mode" do
+              ssl_options = subject.send(:build_ssl_options)
+              expect(ssl_options[:verify]).to eq(:default)
+            end
+          end
+
+          context "with ssl_verification_mode => 'none'" do
+            let(:avro_config) do
+              {
+                'schema_uri' => 'https://schema-registry.example.com/schema.avsc',
+                'ssl_verification_mode' => 'none'
+              }
+            end
+
+            it "sets verification mode to none" do
+              expect(subject.instance_variable_get(:@ssl_verification_mode)).to eq('none')
+            end
+
+            it "builds SSL options with disable verify mode" do
+              ssl_options = subject.send(:build_ssl_options)
+              expect(ssl_options[:verify]).to eq(:disable)
+            end
+          end
+
+          context "with default ssl_verification_mode" do
+            let(:avro_config) do
+              {
+                'schema_uri' => 'https://schema-registry.example.com/schema.avsc'
+              }
+            end
+
+            it "defaults to 'full'" do
+              expect(subject.instance_variable_get(:@ssl_verification_mode)).to eq('full')
+            end
+          end
+        end
+
+        context "keystore configuration" do
+          context "with ssl_keystore_path" do
+            let(:avro_config) do
+              {
+                'schema_uri' => 'https://schema-registry.example.com/schema.avsc',
+                'ssl_keystore_path' => paths[:test_path],
+                'ssl_keystore_password' => 'keystore_pass',
+                'ssl_keystore_type' => 'JKS'
+              }
+            end
+
+            it "configures keystore options" do
+              ssl_options = subject.send(:build_ssl_options)
+              expect(ssl_options[:keystore]).to eq(paths[:test_path])
+              expect(ssl_options[:keystore_password]).to eq('keystore_pass')
+              expect(ssl_options[:keystore_type]).to eq('jks')
+            end
+          end
+
+          context "with ssl_keystore_path and PKCS12 type" do
+            let(:avro_config) do
+              {
+                'schema_uri' => 'https://schema-registry.example.com/schema.avsc',
+                'ssl_keystore_path' => paths[:test_path],
+                'ssl_keystore_password' => 'keystore_pass',
+                'ssl_keystore_type' => 'PKCS12'
+              }
+            end
+
+            it "configures PKCS12 keystore" do
+              ssl_options = subject.send(:build_ssl_options)
+              expect(ssl_options[:keystore_type]).to eq('pkcs12')
+            end
+          end
+
+          context "with ssl_keystore_path but no password" do
+            let(:avro_config) do
+              {
+                'schema_uri' => 'https://schema-registry.example.com/schema.avsc',
+                'ssl_keystore_path' => paths[:test_path],
+              }
+            end
+
+            it "raises ConfigurationError" do
+              expect { subject.send(:validate_ssl_settings!) }.to raise_error(
+                LogStash::ConfigurationError,
+                /`ssl_keystore_path` requires `ssl_keystore_password`/
+              )
+            end
+          end
+        end
+
+        context "truststore configuration" do
+          context "with ssl_truststore_path" do
+            let(:avro_config) do
+              {
+                'schema_uri' => 'https://schema-registry.example.com/schema.avsc',
+                'ssl_truststore_path' => paths[:test_path],
+                'ssl_truststore_password' => 'truststore_pass',
+                'ssl_truststore_type' => 'JKS'
+              }
+            end
+
+            it "configures truststore options" do
+              ssl_options = subject.send(:build_ssl_options)
+              expect(ssl_options[:truststore]).to eq(paths[:test_path])
+              expect(ssl_options[:truststore_password]).to eq('truststore_pass')
+              expect(ssl_options[:truststore_type]).to eq('jks')
+            end
+          end
+
+          context "with ssl_truststore_path and PKCS12 type" do
+            let(:avro_config) do
+              {
+                'schema_uri' => 'https://schema-registry.example.com/schema.avsc',
+                'ssl_truststore_path' => paths[:test_path],
+                'ssl_truststore_password' => 'truststore_pass',
+                'ssl_truststore_type' => 'PKCS12'
+              }
+            end
+
+            it "configures PKCS12 truststore" do
+              ssl_options = subject.send(:build_ssl_options)
+              expect(ssl_options[:truststore_type]).to eq('pkcs12')
+            end
+          end
+
+          context "with ssl_truststore_path but no password" do
+            let(:avro_config) do
+              {
+                'schema_uri' => 'https://schema-registry.example.com/schema.avsc',
+                'ssl_truststore_path' => paths[:test_path]
+              }
+            end
+
+            it "raises ConfigurationError" do
+              expect { subject.send(:validate_ssl_settings!) }.to raise_error(
+                LogStash::ConfigurationError,
+                /`ssl_truststore_path` requires `ssl_truststore_password`/
+              )
+            end
+          end
+        end
+
+        context "CA configuration" do
+          
+          context "with single CA file" do
+            let(:avro_config) do
+              {
+                'schema_uri' => 'https://schema-registry.example.com/schema.avsc',
+                'ssl_certificate_authorities' => [paths[:test_path]]
+              }
+            end
+
+            it "configures CA certificate" do
+              ssl_options = subject.send(:build_ssl_options)
+              expect(ssl_options[:ca_file]).to eq(paths[:test_path])
+            end
+          end
+
+          context "with multiple CA files" do
+            let(:avro_config) do
+              {
+                'schema_uri' => 'https://schema-registry.example.com/schema.avsc',
+                'ssl_certificate_authorities' => [paths[:test_path], paths[:test_path]]
+              }
+            end
+
+            it "raises ConfigurationError for multiple CAs" do
+              expect { subject.send(:validate_ssl_settings!) }.to raise_error(
+                LogStash::ConfigurationError,
+                /Multiple values on `ssl_certificate_authorities` are not supported/
+              )
+            end
+          end
+
+          context "with empty ssl_certificate_authorities" do
+            let(:avro_config) do
+              {
+                'schema_uri' => 'https://schema-registry.example.com/schema.avsc',
+                'ssl_certificate_authorities' => []
+              }
+            end
+
+            it "raises ConfigurationError" do
+              expect { subject.send(:validate_ssl_settings!) }.to raise_error(
+                LogStash::ConfigurationError,
+                /`ssl_certificate_authorities` cannot be empty/
+              )
+            end
+          end
+        end
+
+        context "cipher suites" do
+          context "with specified cipher suites" do
+            let(:avro_config) do
+              {
+                'schema_uri' => 'https://schema-registry.example.com/schema.avsc',
+                'ssl_cipher_suites' => %w[TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384 TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256]
+              }
+            end
+
+            it "configures cipher suites" do
+              ssl_options = subject.send(:build_ssl_options)
+              expect(ssl_options[:cipher_suites]).to eq(%w[TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384 TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256])
+            end
+          end
+
+          context "without cipher suites" do
+            let(:avro_config) do
+              {
+                'schema_uri' => 'https://schema-registry.example.com/schema.avsc'
+              }
+            end
+
+            it "does not include cipher_suites in SSL options" do
+              ssl_options = subject.send(:build_ssl_options)
+              expect(ssl_options).not_to have_key(:cipher_suites)
+            end
+          end
+        end
+
+        context "supported protocols" do
+          context "with TLSv1.2 and TLSv1.3" do
+            let(:avro_config) do
+              {
+                'schema_uri' => 'https://schema-registry.example.com/schema.avsc',
+                'ssl_supported_protocols' => %w[TLSv1.2 TLSv1.3]
+              }
+            end
+
+            it "configures supported protocols" do
+              ssl_options = subject.send(:build_ssl_options)
+              expect(ssl_options[:protocols]).to eq(%w[TLSv1.2 TLSv1.3])
+            end
+          end
+
+          context "with only TLSv1.3" do
+            let(:avro_config) do
+              {
+                'schema_uri' => 'https://schema-registry.example.com/schema.avsc',
+                'ssl_supported_protocols' => ['TLSv1.3']
+              }
+            end
+
+            it "configures only TLSv1.3" do
+              ssl_options = subject.send(:build_ssl_options)
+              expect(ssl_options[:protocols]).to eq(['TLSv1.3'])
+            end
+          end
+
+          context "with empty ssl_supported_protocols" do
+            let(:avro_config) do
+              {
+                'schema_uri' => 'https://schema-registry.example.com/schema.avsc',
+                'ssl_supported_protocols' => []
+              }
+            end
+
+            it "does not include protocols in SSL options" do
+              ssl_options = subject.send(:build_ssl_options)
+              expect(ssl_options).not_to have_key(:protocols)
+            end
+          end
+
+          context "without ssl_supported_protocols" do
+            let(:avro_config) do
+              {
+                'schema_uri' => 'https://schema-registry.example.com/schema.avsc'
+              }
+            end
+
+            it "uses default (no protocols key)" do
+              ssl_options = subject.send(:build_ssl_options)
+              expect(ssl_options).not_to have_key(:protocols)
+            end
+          end
+        end
+
+        context "SSL validations" do
+          context "PEM certificate validation" do
+            context "when both ssl_certificate and ssl_keystore_path are set" do
+              let(:avro_config) do
+                {
+                  'schema_uri' => 'https://schema-registry.example.com/schema.avsc',
+                  'ssl_certificate' => paths[:test_path],
+                  'ssl_key' => paths[:test_path],
+                  'ssl_keystore_path' => paths[:test_path],
+                  'ssl_keystore_password' => 'password'
+                }
+              end
+
+              it "raises ConfigurationError" do
+                expect { subject.send(:validate_ssl_settings!) }.to raise_error(
+                  LogStash::ConfigurationError,
+                  /`ssl_certificate` and `ssl_keystore_path` cannot be used together/
+                )
+              end
+            end
+
+            context "when ssl_certificate is set without ssl_key" do
+              let(:avro_config) do
+                {
+                  'schema_uri' => 'https://schema-registry.example.com/schema.avsc',
+                  'ssl_certificate' => paths[:test_path]
+                }
+              end
+
+              it "raises ConfigurationError" do
+                expect { subject.send(:validate_ssl_settings!) }.to raise_error(
+                  LogStash::ConfigurationError,
+                  /`ssl_certificate` requires `ssl_key`/
+                )
+              end
+            end
+
+            context "when ssl_key is set without ssl_certificate" do
+              let(:avro_config) do
+                {
+                  'schema_uri' => 'https://schema-registry.example.com/schema.avsc',
+                  'ssl_key' => paths[:test_path]
+                }
+              end
+
+              it "raises ConfigurationError" do
+                expect { subject.send(:validate_ssl_settings!) }.to raise_error(
+                  LogStash::ConfigurationError,
+                  /`ssl_key` is not allowed unless `ssl_certificate` is specified/
+                )
+              end
+            end
+          end
+
+          context "keystore validation" do
+            context "when ssl_keystore_password is set without ssl_keystore_path" do
+              let(:avro_config) do
+                {
+                  'schema_uri' => 'https://schema-registry.example.com/schema.avsc',
+                  'ssl_keystore_password' => 'password'
+                }
+              end
+
+              it "raises ConfigurationError" do
+                expect { subject.send(:validate_ssl_settings!) }.to raise_error(
+                  LogStash::ConfigurationError,
+                  /`ssl_keystore_password` is not allowed unless `ssl_keystore_path` is specified/
+                )
+              end
+            end
+
+            context "when ssl_keystore_password is empty" do
+              let(:avro_config) do
+                {
+                  'schema_uri' => 'https://schema-registry.example.com/schema.avsc',
+                  'ssl_keystore_path' => paths[:test_path],
+                  'ssl_keystore_password' => ''
+                }
+              end
+
+              it "raises ConfigurationError" do
+                expect { subject.send(:validate_ssl_settings!) }.to raise_error(
+                  LogStash::ConfigurationError,
+                  /`ssl_keystore_password` cannot be empty/
+                )
+              end
+            end
+
+            context "when ssl_keystore_type is set without ssl_keystore_path" do
+              let(:avro_config) do
+                {
+                  'schema_uri' => 'https://schema-registry.example.com/schema.avsc',
+                  'ssl_keystore_type' => 'JKS'
+                }
+              end
+
+              it "raises ConfigurationError" do
+                expect { subject.send(:validate_ssl_settings!) }.to raise_error(
+                  LogStash::ConfigurationError,
+                  /`ssl_keystore_type` is not allowed unless `ssl_keystore_path` is specified/
+                )
+              end
+            end
+          end
+
+          context "truststore validation" do
+            context "when ssl_truststore_password is set without ssl_truststore_path" do
+              let(:avro_config) do
+                {
+                  'schema_uri' => 'https://schema-registry.example.com/schema.avsc',
+                  'ssl_truststore_password' => 'password'
+                }
+              end
+
+              it "raises ConfigurationError" do
+                expect { subject.send(:validate_ssl_settings!) }.to raise_error(
+                  LogStash::ConfigurationError,
+                  /`ssl_truststore_password` is not allowed unless `ssl_truststore_path` is specified/
+                )
+              end
+            end
+
+            context "when ssl_truststore_password is empty" do
+              let(:avro_config) do
+                {
+                  'schema_uri' => 'https://schema-registry.example.com/schema.avsc',
+                  'ssl_truststore_path' => paths[:test_path],
+                  'ssl_truststore_password' => ''
+                }
+              end
+
+              it "raises ConfigurationError" do
+                expect { subject.send(:validate_ssl_settings!) }.to raise_error(
+                  LogStash::ConfigurationError,
+                  /`ssl_truststore_password` cannot be empty/
+                )
+              end
+            end
+
+            context "when both ssl_truststore_path and ssl_certificate_authorities are set" do
+              let(:avro_config) do
+                {
+                  'schema_uri' => 'https://schema-registry.example.com/schema.avsc',
+                  'ssl_truststore_path' => paths[:test_path],
+                  'ssl_truststore_password' => 'password',
+                  'ssl_certificate_authorities' => [paths[:test_path]]
+                }
+              end
+
+              it "raises ConfigurationError" do
+                expect { subject.send(:validate_ssl_settings!) }.to raise_error(
+                  LogStash::ConfigurationError,
+                  /`ssl_truststore_path` and `ssl_certificate_authorities` cannot be used together/
+                )
+              end
+            end
+          end
+
+          context "verification mode validation" do
+            context "when ssl_truststore_path is set with verification mode none" do
+              let(:avro_config) do
+                {
+                  'schema_uri' => 'https://schema-registry.example.com/schema.avsc',
+                  'ssl_truststore_path' => paths[:test_path],
+                  'ssl_truststore_password' => 'password',
+                  'ssl_verification_mode' => 'none'
+                }
+              end
+
+              it "requires `ssl_verification_mode` => 'full'" do
+                expect { subject.send(:validate_ssl_settings!) }.to raise_error(
+                  LogStash::ConfigurationError,
+                  /`ssl_truststore_path` requires `ssl_verification_mode` to be `full`/
+                )
+              end
+            end
+
+            context "when ssl_truststore_password is set with verification mode none" do
+              let(:avro_config) do
+                {
+                  'schema_uri' => 'https://schema-registry.example.com/schema.avsc',
+                  'ssl_truststore_password' => 'password',
+                  'ssl_verification_mode' => 'none'
+                }
+              end
+
+              it "requires `ssl_verification_mode => 'full'" do
+                expect { subject.send(:validate_ssl_settings!) }.to raise_error(
+                  LogStash::ConfigurationError,
+                  /`ssl_truststore_password` requires `ssl_truststore_path` and `ssl_verification_mode => 'full'`/
+                )
+              end
+            end
+
+            context "when ssl_certificate_authorities is set with verification mode none" do
+              let(:avro_config) do
+                {
+                  'schema_uri' => 'https://schema-registry.example.com/schema.avsc',
+                  'ssl_certificate_authorities' => [paths[:test_path]],
+                  'ssl_verification_mode' => 'none'
+                }
+              end
+
+              it "requires `ssl_verification_mode => 'full'" do
+                expect { subject.send(:validate_ssl_settings!) }.to raise_error(
+                  LogStash::ConfigurationError,
+                  /`ssl_certificate_authorities` requires `ssl_verification_mode` to be `full`/
+                )
+              end
+            end
+          end
+        end
       end
     end
   end

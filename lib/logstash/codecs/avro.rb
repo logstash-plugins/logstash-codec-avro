@@ -106,7 +106,7 @@ class LogStash::Codecs::Avro < LogStash::Codecs::Base
 
   # Path to PEM encoded CA certificate file(s) for server verification
   # Can be a single file or directory containing multiple CA certificates
-  config :ssl_certificate_authorities, :validate => :path
+  config :ssl_certificate_authorities, :validate => :path, :list => true
 
   # Options to verify the server's certificate.
   # "full": validates that the provided certificate has an issue date that’s within the not_before and not_after dates;
@@ -120,8 +120,8 @@ class LogStash::Codecs::Avro < LogStash::Codecs::Base
   # The keystore password
   config :ssl_keystore_password, :validate => :password
 
-  # Keystore type (JKS or PKCS12). Defaults to JKS.
-  config :ssl_keystore_type, :validate => %w[JKS PKCS12], :default => "JKS"
+  # Keystore type (JKS or PKCS12)
+  config :ssl_keystore_type, :validate => %w[JKS PKCS12]
 
   # The truststore path
   config :ssl_truststore_path, :validate => :path
@@ -129,8 +129,8 @@ class LogStash::Codecs::Avro < LogStash::Codecs::Base
   # The truststore password
   config :ssl_truststore_password, :validate => :password
 
-  # Truststore type (JKS or PKCS12). Defaults to JKS.
-  config :ssl_truststore_type, :validate => %w[JKS PKCS12], :default => "JKS"
+  # Truststore type (JKS or PKCS12)
+  config :ssl_truststore_type, :validate => %w[JKS PKCS12]
 
   # The list of cipher suites to use, listed by priorities.
   # Supported cipher suites vary depending on which version of Java is used.
@@ -270,7 +270,7 @@ class LogStash::Codecs::Avro < LogStash::Codecs::Base
     # establishing trust of the server we connect to
     # system-provided trust requires verification mode enabled
     if @ssl_verification_mode == "none"
-      raise_config_error! "`ssl_truststore_path` requires `ssl_verification_mode` to be either `full`" if @ssl_truststore_path
+      raise_config_error! "`ssl_truststore_path` requires `ssl_verification_mode` to be `full`" if @ssl_truststore_path
       raise_config_error! "`ssl_truststore_password` requires `ssl_truststore_path` and `ssl_verification_mode => 'full'`" if @ssl_truststore_password
       raise_config_error! "`ssl_certificate_authorities` requires `ssl_verification_mode` to be `full`" if @ssl_certificate_authorities
     end
@@ -286,7 +286,7 @@ class LogStash::Codecs::Avro < LogStash::Codecs::Base
       raise_config_error! "`ssl_certificate_authorities` cannot be empty"
     end
 
-    raise_config_error! "Multiple values on `ssl_certificate_authorities` are not supported by this plugin" if @ssl_certificate_authorities.size > 1
+    raise_config_error! "Multiple values on `ssl_certificate_authorities` are not supported by this plugin" if @ssl_certificate_authorities && @ssl_certificate_authorities&.size > 1
     ensure_readable_and_non_writable! "ssl_certificate_authorities", @ssl_certificate_authorities&.first
   end
 
