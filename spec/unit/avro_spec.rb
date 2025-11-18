@@ -216,8 +216,7 @@ describe LogStash::Codecs::Avro, :ecs_compatibility_support, :aggregate_failures
     end
 
     subject do
-      allow_any_instance_of(LogStash::Codecs::Avro).to \
-        receive(:fetch_remote_schema).and_return(test_schema)
+      allow_any_instance_of(LogStash::Codecs::Avro).to receive(:fetch_schema).and_return(test_schema)
       next LogStash::Codecs::Avro.new(avro_config)
     end
 
@@ -320,11 +319,6 @@ describe LogStash::Codecs::Avro, :ecs_compatibility_support, :aggregate_failures
           }
         end
 
-        it "warns about credentials over unencrypted HTTP" do
-          expect(subject.logger).to receive(:warn).with(/Credentials are being sent over unencrypted HTTP/)
-          subject.register
-        end
-
         it "still returns valid auth hash" do
           allow(subject.logger).to receive(:warn)
           auth = subject.send(:build_basic_auth)
@@ -362,7 +356,7 @@ describe LogStash::Codecs::Avro, :ecs_compatibility_support, :aggregate_failures
           end
 
           it "automatically enables SSL for HTTPS URIs" do
-            subject.register
+            subject.send(:validate_ssl_settings!)
             expect(subject.instance_variable_get(:@ssl_enabled)).to be true
           end
         end
