@@ -301,8 +301,10 @@ class LogStash::Codecs::Avro < LogStash::Codecs::Base
       raise_config_error! "`ssl_certificate_authorities` cannot be empty"
     end
 
-    raise_config_error! "Multiple values on `ssl_certificate_authorities` are not supported by this plugin" if @ssl_certificate_authorities && @ssl_certificate_authorities&.size > 1
-    ensure_readable_and_non_writable! "ssl_certificate_authorities", @ssl_certificate_authorities&.first
+    if @ssl_certificate_authorities && !@ssl_certificate_authorities.empty?
+      raise_config_error! "Multiple values on `ssl_certificate_authorities` are not supported by this plugin" if @ssl_certificate_authorities.size > 1
+      ensure_readable_and_non_writable! "ssl_certificate_authorities", @ssl_certificate_authorities.first
+    end
   end
 
   def build_ssl_options

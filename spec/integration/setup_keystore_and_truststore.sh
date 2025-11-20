@@ -10,3 +10,8 @@ keytool -exportcert -rfc -keystore tls_repository/schema_reg.jks -storepass chan
 
 echo "Creating client's truststore and importing schema registry's certificate"
 keytool -import -trustcacerts -file tls_repository/schema_reg_certificate.pem -keypass changeit -storepass changeit -keystore tls_repository/clienttruststore.jks -noprompt
+
+# make files read only
+chmod 444 tls_repository/schema_reg.jks
+chmod 444 tls_repository/schema_reg_certificate.pem
+chmod 444 tls_repository/clienttruststore.jks

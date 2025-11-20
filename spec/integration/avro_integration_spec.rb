@@ -20,7 +20,6 @@ describe "Avro Codec Integration Tests", :integration => true do
       ]
     }
   end
-
   let(:test_schema_json) { test_schema.to_json }
   let(:test_event_data) do
     {
@@ -28,8 +27,7 @@ describe "Avro Codec Integration Tests", :integration => true do
       "timestamp" => Time.now.to_i
     }
   end
-
-  let(:config) {{ }}
+  let(:config) { {} }
   let(:codec) { LogStash::Codecs::Avro.new(config).tap { |c| c.register } }
 
   def run_integration_script(script_name)
@@ -137,7 +135,7 @@ describe "Avro Codec Integration Tests", :integration => true do
         url
       end
 
-      let(:config) { super().merge({'schema_uri' => full_schema_url}) }
+      let(:config) { super().merge({ 'schema_uri' => full_schema_url }) }
 
       before do
         client = Manticore::Client.new
@@ -180,6 +178,282 @@ describe "Avro Codec Integration Tests", :integration => true do
         end
 
         expect(events.first.get("message")).to eq(test_event_data["message"])
+      end
+    end
+  end
+
+  context "Schema Registry with authentication" do
+    let(:schema_registry_url) { "http://localhost:8081" }
+    let(:username) { "barney" }
+    let(:password) { "changeme" }
+
+    before(:all) do
+      run_integration_script("stop_schema_registry.sh")
+      sleep 2
+      run_integration_script("start_auth_schema_registry.sh")
+      sleep 5
+      wait_for_schema_registry("http://localhost:8081", username: "barney", password: "changeme")
+    end
+
+    after(:all) do
+      run_integration_script("stop_schema_registry.sh")
+      sleep 2
+    end
+
+    context "with valid credentials" do
+      let(:schema_subject) { "test-auth-#{Time.now.to_i}" }
+      let(:full_schema_url) { "#{schema_registry_url}/subjects/#{schema_subject}/versions/latest" }
+      let(:config) { super().merge({ 'schema_uri' => full_schema_url, 'username' => username, 'password' => password }) }
+
+      before do
+        client_options = { auth: { user: username, password: password } }
+        client = Manticore::Client.new(client_options)
+        response = client.post("#{schema_registry_url}/subjects/#{schema_subject}/versions",
+                               headers: { "Content-Type" => "application/vnd.schemaregistry.v1+json" },
+                               body: { schema: test_schema_json }.to_json
+        ).call
+        expect(response.code).to eq(200)
+        client.close
+      end
+
+      it "fetches schema with valid credentials" do
+        encoded_data = encode_avro_data(test_schema_json, test_event_data)
+        events = []
+        codec.decode(encoded_data) do |event|
+          events << event
+        end
+
+        expect(events.size).to eq(1)
+        expect(events.first.get("message")).to eq(test_event_data["message"])
+      end
+
+      it "encodes data with authentication" do
+        event = LogStash::Event.new(test_event_data)
+        encoded_data = nil
+
+        codec.on_event do |e, data|
+          encoded_data = data
+        end
+
+        codec.encode(event)
+        expect(encoded_data).not_to be_nil
+      end
+    end
+
+    context "with invalid credentials" do
+      let(:schema_subject) { "test-invalid-auth-#{Time.now.to_i}" }
+      let(:full_schema_url) { "#{schema_registry_url}/subjects/#{schema_subject}/versions/latest" }
+
+      before do
+        client_options = { auth: { user: username, password: password } }
+        client = Manticore::Client.new(client_options)
+        response = client.post("#{schema_registry_url}/subjects/#{schema_subject}/versions",
+                               headers: { "Content-Type" => "application/vnd.schemaregistry.v1+json" },
+                               body: { schema: test_schema_json }.to_json
+        ).call
+        expect(response.code).to eq(200)
+        client.close
+      end
+
+      it "fails with invalid credentials" do
+        expect {
+          invalid_config = { 'schema_uri' => full_schema_url, 'username' => 'invalid', 'password' => 'wrong' }
+          LogStash::Codecs::Avro.new(invalid_config).tap { |c| c.register }
+        }.to raise_error(/401|403|HTTP request failed/)
+      end
+    end
+  end
+
+  context "Schema Registry with SSL/TLS" do
+    let(:schema_registry_https_url) { "https://localhost:8083" }
+    let(:truststore_path) { File.join(INTEGRATION_DIR, "tls_repository", "clienttruststore.jks") }
+    let(:truststore_password) { "changeit" }
+    let(:ca_cert_path) { File.join(INTEGRATION_DIR, "tls_repository", "schema_reg_certificate.pem") }
+
+    before(:all) do
+      # Ensure non-auth registry is running (it includes HTTPS on 8083)
+      run_integration_script("stop_schema_registry.sh")
+      sleep 2
+      run_integration_script("start_schema_registry.sh")
+      sleep 5
+
+      ssl_options = {
+        truststore: File.join(INTEGRATION_DIR, "tls_repository", "clienttruststore.jks"),
+        truststore_password: "changeit",
+        truststore_type: "jks",
+        verify: :default
+      }
+      wait_for_schema_registry("https://localhost:8083", ssl_options: ssl_options)
+    end
+
+    after(:all) do
+      run_integration_script("stop_schema_registry.sh")
+      sleep 2
+    end
+
+    context "with truststore configuration" do
+      let(:schema_subject) { "test-ssl-truststore-#{Time.now.to_i}" }
+      let(:full_schema_url) { "#{schema_registry_https_url}/subjects/#{schema_subject}/versions/latest" }
+      let(:config) do
+        super().merge({
+                        'schema_uri' => full_schema_url,
+                        'ssl_enabled' => true,
+                        'ssl_truststore_path' => truststore_path,
+                        'ssl_truststore_password' => truststore_password,
+                        'ssl_truststore_type' => 'JKS',
+                        'ssl_verification_mode' => 'full'
+                      })
+      end
+
+      before do
+        ssl_options = {
+          truststore: truststore_path,
+          truststore_password: truststore_password,
+          truststore_type: "jks",
+          verify: :default
+        }
+        client = Manticore::Client.new(ssl: ssl_options)
+        response = client.post("#{schema_registry_https_url}/subjects/#{schema_subject}/versions",
+                               headers: { "Content-Type" => "application/vnd.schemaregistry.v1+json" },
+                               body: { schema: test_schema_json }.to_json
+        ).call
+        expect(response.code).to eq(200)
+        client.close
+      end
+
+      it "fetches schema using truststore" do
+        encoded_data = encode_avro_data(test_schema_json, test_event_data)
+        events = []
+        codec.decode(encoded_data) do |event|
+          events << event
+        end
+
+        expect(events.size).to eq(1)
+        expect(events.first.get("message")).to eq(test_event_data["message"])
+      end
+    end
+
+    context "with CA certificate configuration" do
+      let(:schema_subject) { "test-ssl-ca-#{Time.now.to_i}" }
+      let(:full_schema_url) { "#{schema_registry_https_url}/subjects/#{schema_subject}/versions/latest" }
+      let(:config) do
+        super().merge({
+                        'schema_uri' => full_schema_url,
+                        'ssl_enabled' => true,
+                        'ssl_certificate_authorities' => [ca_cert_path],
+                        'ssl_verification_mode' => 'full'
+                      })
+      end
+
+      before do
+        ssl_options = { ca_file: ca_cert_path, verify: :default }
+        client = Manticore::Client.new(ssl: ssl_options)
+        response = client.post("#{schema_registry_https_url}/subjects/#{schema_subject}/versions",
+                               headers: { "Content-Type" => "application/vnd.schemaregistry.v1+json" },
+                               body: { schema: test_schema_json }.to_json
+        ).call
+        expect(response.code).to eq(200)
+        client.close
+      end
+
+      it "fetches schema using CA certificate" do
+        encoded_data = encode_avro_data(test_schema_json, test_event_data)
+        events = []
+        codec.decode(encoded_data) do |event|
+          events << event
+        end
+
+        expect(events.size).to eq(1)
+        expect(events.first.get("message")).to eq(test_event_data["message"])
+      end
+    end
+  end
+
+  context "Schema Registry with authentication and SSL" do
+    let(:schema_registry_https_url) { "https://localhost:8083" }
+    let(:username) { "barney" }
+    let(:password) { "changeme" }
+    let(:truststore_path) { File.join(INTEGRATION_DIR, "tls_repository", "clienttruststore.jks") }
+    let(:truststore_password) { "changeit" }
+
+    before(:all) do
+      # Start authenticated registry (includes HTTPS)
+      run_integration_script("stop_schema_registry.sh")
+      sleep 3
+      run_integration_script("start_auth_schema_registry.sh")
+      sleep 10
+
+      ssl_options = {
+        truststore: File.join(INTEGRATION_DIR, "tls_repository", "clienttruststore.jks"),
+        truststore_password: "changeit",
+        truststore_type: "jks",
+        verify: :default
+      }
+      wait_for_schema_registry("https://localhost:8083", username: "barney", password: "changeme", ssl_options: ssl_options)
+    end
+
+    after(:all) do
+      run_integration_script("stop_schema_registry.sh")
+      sleep 2
+    end
+
+    context "with valid credentials and truststore" do
+      let(:schema_subject) { "test-auth-ssl-#{Time.now.to_i}" }
+      let(:full_schema_url) { "#{schema_registry_https_url}/subjects/#{schema_subject}/versions/latest" }
+      let(:config) do
+        super().merge({
+                        'schema_uri' => full_schema_url,
+                        'username' => username,
+                        'password' => password,
+                        'ssl_enabled' => true,
+                        'ssl_truststore_path' => truststore_path,
+                        'ssl_truststore_password' => truststore_password,
+                        'ssl_truststore_type' => 'JKS',
+                        'ssl_verification_mode' => 'full'
+                      })
+      end
+
+      before do
+        ssl_options = {
+          truststore: truststore_path,
+          truststore_password: truststore_password,
+          truststore_type: "jks",
+          verify: :default
+        }
+        client_options = {
+          auth: { user: username, password: password },
+          ssl: ssl_options
+        }
+        client = Manticore::Client.new(client_options)
+        response = client.post("#{schema_registry_https_url}/subjects/#{schema_subject}/versions",
+                               headers: { "Content-Type" => "application/vnd.schemaregistry.v1+json" },
+                               body: { schema: test_schema_json }.to_json
+        ).call
+        expect(response.code).to eq(200)
+        client.close
+      end
+
+      it "fetches schema with both authentication and SSL" do
+        encoded_data = encode_avro_data(test_schema_json, test_event_data)
+        events = []
+        codec.decode(encoded_data) do |event|
+          events << event
+        end
+
+        expect(events.size).to eq(1)
+        expect(events.first.get("message")).to eq(test_event_data["message"])
+      end
+
+      it "encodes data with authentication and SSL" do
+        event = LogStash::Event.new(test_event_data)
+        encoded_data = nil
+
+        codec.on_event do |e, data|
+          encoded_data = data
+        end
+
+        codec.encode(event)
+        expect(encoded_data).not_to be_nil
       end
     end
   end
