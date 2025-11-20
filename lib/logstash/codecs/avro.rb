@@ -3,6 +3,7 @@ require "open-uri"
 require "manticore"
 require "avro"
 require "base64"
+require "json"
 require "logstash/codecs/base"
 require "logstash/event"
 require "logstash/timestamp"
@@ -209,7 +210,7 @@ class LogStash::Codecs::Avro < LogStash::Codecs::Base
   def fetch_remote_schema(uri_string)
     client_options = {}
 
-    unless @proxy&.empty?
+    if @proxy && !@proxy.empty?
       client_options[:proxy] = @proxy.to_s
     end
 
@@ -228,7 +229,21 @@ class LogStash::Codecs::Avro < LogStash::Codecs::Base
       raise "HTTP request failed: #{response.code} #{response.message}"
     end
 
-    response.body
+    body = response.body
+    # Response may contain schema metadata, schema field is what we need
+    # Example response: {"subject":"test-no-auth-1763597024","version":1,"id":1,"guid":"5c6c5f26-e876-e5ab-02b0-8d9bebbc90d7","schemaType":"AVRO","schema":"{"type":"record","name":"TestRecord","namespace":"com.example","fields":[{"name":"message","type":"string"},{"name":"timestamp","type":"long"}]}","ts":1763597024561,"deleted":false}
+    begin
+      parsed = JSON.parse(body)
+      if parsed.is_a?(Hash) && parsed.has_key?('schema')
+        parsed['schema']
+      else
+        # fallback to use the response as it is
+        body
+      end
+    rescue JSON::ParserError
+      # Not JSON, return as-is (probably a direct schema)
+      body
+    end
   ensure
     client.close if client
   end
