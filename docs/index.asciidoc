@@ -134,8 +134,8 @@ Set this option to `binary` to indicate that this codec sends or expects to rece
 * Value type is <<password,password>>
 * There is no default value for this setting.
 
-Password for HTTP basic authentication when fetching the schema from a remote server.
-Must be used in combination with the `username` setting.
+Password for HTTP basic authentication when fetching remote schemas.
+Used together with `username`.
 
 [id="plugins-{type}s-{plugin}-proxy"]
 ===== `proxy`
@@ -143,7 +143,7 @@ Must be used in combination with the `username` setting.
 * Value type is <<uri,uri>>
 * There is no default value for this setting.
 
-Proxy server URL for schema registry connections.
+The address of a forward HTTP proxy to use when contacting a remote schema registry.
 
 [id="plugins-{type}s-{plugin}-schema_uri"]
 ===== `schema_uri` 
@@ -174,8 +174,7 @@ tag events with `_avroparsefailure` when decode fails
 * There is no default value for this setting.
 
 Path to PEM encoded certificate file for client authentication (mutual TLS).
-This is an alternative to using <<plugins-{type}s-{plugin}-ssl_keystore_path>>.
-You cannot use this setting and <<plugins-{type}s-{plugin}-ssl_keystore_path>> at the same time.
+You may use this setting or <<plugins-{type}s-{plugin}-ssl_keystore_path>>, but not both simultaneously.
 
 *Example*
 [source,ruby]
@@ -242,8 +241,6 @@ When using HTTPS schema URIs, SSL is automatically enabled.
 The path to the JKS or PKCS12 keystore file for client certificate authentication.
 Use this when the schema registry requires mutual TLS (mTLS) authentication.
 
-This setting is only used when `schema_uri` uses the `https://` scheme.
-
 [id="plugins-{type}s-{plugin}-ssl_keystore_password"]
 ===== `ssl_keystore_password`
 
@@ -280,8 +277,6 @@ When not specified, the JVM defaults are used.
 The path to the JKS or PKCS12 truststore file containing certificates to verify
 the schema registry server's certificate.
 
-This setting is only used when `schema_uri` uses the `https://` scheme.
-
 *Example*
 [source,ruby]
 ----------------------------------
@@ -310,7 +305,7 @@ The password for the truststore file specified in <<plugins-{type}s-{plugin}-ssl
 * Value type is <<string,string>>
 * There is no default value for this setting.
 
-The type of the truststore file. Can be either `JKS` or `PKCS12`.
+The format of the truststore file. It must be either `JKS` or `PKCS12`.
 
 [id="plugins-{type}s-{plugin}-ssl_verification_mode"]
 ===== `ssl_verification_mode`
@@ -367,8 +362,8 @@ input {
 * Value type is <<string,string>>
 * There is no default value for this setting.
 
-Username for HTTP basic authentication when fetching the schema from a remote server.
-Must be used in combination with the `password` setting.
+Username for HTTP basic authentication when fetching remote schemas.
+Used together with `password`.
 
 *Example*
 [source,ruby]

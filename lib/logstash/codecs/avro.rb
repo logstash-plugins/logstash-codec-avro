@@ -256,9 +256,7 @@ class LogStash::Codecs::Avro < LogStash::Codecs::Base
     raise LogStash::ConfigurationError, "`username` requires `password`" if @username && !@password
     raise LogStash::ConfigurationError, "`password` is not allowed unless `username` is specified" if !@username && @password
 
-    if @username && @password
-      raise LogStash::ConfigurationError, "Empty `username` or `password` is not allowed" if @username.empty? || @password.value.empty?
-    end
+    raise LogStash::ConfigurationError, "Empty `username` or `password` is not allowed" if @username.empty? || @password.value.empty?
 
     {:user => @username, :password => @password.value}
   end
