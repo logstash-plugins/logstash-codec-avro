@@ -61,22 +61,35 @@ describe "Avro Codec Integration Tests", :integration => true do
     expect(events.first.get("timestamp")).to eq(expected_data["timestamp"])
   end
 
-  def wait_for_schema_registry(url, username: nil, password: nil, ssl_options: {})
+  def create_manticore_client(username: nil, password: nil, ssl_options: {})
     client_options = {}
-
     if username && password
       client_options[:auth] = { user: username, password: password }
     end
-
     client_options[:ssl] = ssl_options unless ssl_options.empty?
 
+    Manticore::Client.new(client_options)
+  end
+
+  def wait_for_schema_registry(url, username: nil, password: nil, ssl_options: {})
     puts "Waiting for Schema Registry at #{url}..."
-    client = Manticore::Client.new(client_options)
+    client = create_manticore_client(username: username, password: password, ssl_options: ssl_options)
 
     Stud.try(20.times, [Manticore::SocketException, StandardError, RSpec::Expectations::ExpectationNotMetError]) do
       response = client.get(url).call
       expect(response.code).to eq(200)
     end
+    client.close
+  end
+
+  def register_schema(base_url, subject, schema_json, username: nil, password: nil, ssl_options: {})
+    client = create_manticore_client(username: username, password: password, ssl_options: ssl_options)
+    response = client.post("#{base_url}/subjects/#{subject}/versions",
+                           headers: { "Content-Type" => "application/vnd.schemaregistry.v1+json" },
+                           body: { schema: schema_json }.to_json
+    ).call
+    expect(response.code).to eq(200)
+    client.close
   end
 
   context "Schema Registry without authentication" do
@@ -102,14 +115,7 @@ describe "Avro Codec Integration Tests", :integration => true do
       let(:config) { super().merge({ 'schema_uri' => full_schema_url }) }
 
       before do
-        client = Manticore::Client.new
-        response = client.post("#{schema_registry_url}/subjects/#{schema_subject}/versions",
-                               headers: { "Content-Type" => "application/vnd.schemaregistry.v1+json" },
-                               body: { schema: test_schema_json }.to_json
-        ).call
-        puts "Schema registration response: #{response.code}"
-        expect(response.code).to eq(200)
-        client.close
+        register_schema(schema_registry_url, schema_subject, test_schema_json)
       end
 
       it "fetches and decodes schema from Schema Registry" do
@@ -157,14 +163,8 @@ describe "Avro Codec Integration Tests", :integration => true do
       let(:config) { super().merge({ 'schema_uri' => full_schema_url, 'username' => username, 'password' => password }) }
 
       before do
-        client_options = { auth: { user: username, password: password } }
-        client = Manticore::Client.new(client_options)
-        response = client.post("#{schema_registry_url}/subjects/#{schema_subject}/versions",
-                               headers: { "Content-Type" => "application/vnd.schemaregistry.v1+json" },
-                               body: { schema: test_schema_json }.to_json
-        ).call
-        expect(response.code).to eq(200)
-        client.close
+        register_schema(schema_registry_url, schema_subject, test_schema_json,
+                       username: username, password: password)
       end
 
       it "fetches schema with valid credentials" do
@@ -191,14 +191,8 @@ describe "Avro Codec Integration Tests", :integration => true do
       let(:full_schema_url) { "#{schema_registry_url}/subjects/#{schema_subject}/versions/latest" }
 
       before do
-        client_options = { auth: { user: username, password: password } }
-        client = Manticore::Client.new(client_options)
-        response = client.post("#{schema_registry_url}/subjects/#{schema_subject}/versions",
-                               headers: { "Content-Type" => "application/vnd.schemaregistry.v1+json" },
-                               body: { schema: test_schema_json }.to_json
-        ).call
-        expect(response.code).to eq(200)
-        client.close
+        register_schema(schema_registry_url, schema_subject, test_schema_json,
+                       username: username, password: password)
       end
 
       it "fails with invalid credentials" do
@@ -210,7 +204,7 @@ describe "Avro Codec Integration Tests", :integration => true do
     end
   end
 
-  context "Schema Registry with SSL/TLS" do
+  context "Schema Registry with truststore configuration" do
     let(:schema_registry_https_url) { "https://localhost:8083" }
     let(:truststore_path) { File.join(INTEGRATION_DIR, "tls_repository", "clienttruststore.jks") }
     let(:truststore_password) { "changeit" }
@@ -255,13 +249,8 @@ describe "Avro Codec Integration Tests", :integration => true do
           truststore_type: "jks",
           verify: :default
         }
-        client = Manticore::Client.new(ssl: ssl_options)
-        response = client.post("#{schema_registry_https_url}/subjects/#{schema_subject}/versions",
-                               headers: { "Content-Type" => "application/vnd.schemaregistry.v1+json" },
-                               body: { schema: test_schema_json }.to_json
-        ).call
-        expect(response.code).to eq(200)
-        client.close
+        register_schema(schema_registry_https_url, schema_subject, test_schema_json,
+                       ssl_options: ssl_options)
       end
 
       it "fetches schema using truststore" do
@@ -285,13 +274,8 @@ describe "Avro Codec Integration Tests", :integration => true do
 
       before do
         ssl_options = { ca_file: ca_cert_path, verify: :default }
-        client = Manticore::Client.new(ssl: ssl_options)
-        response = client.post("#{schema_registry_https_url}/subjects/#{schema_subject}/versions",
-                               headers: { "Content-Type" => "application/vnd.schemaregistry.v1+json" },
-                               body: { schema: test_schema_json }.to_json
-        ).call
-        expect(response.code).to eq(200)
-        client.close
+        register_schema(schema_registry_https_url, schema_subject, test_schema_json,
+                       ssl_options: ssl_options)
       end
 
       it "fetches schema using CA certificate" do
@@ -350,17 +334,9 @@ describe "Avro Codec Integration Tests", :integration => true do
           truststore_type: "jks",
           verify: :default
         }
-        client_options = {
-          auth: { user: username, password: password },
-          ssl: ssl_options
-        }
-        client = Manticore::Client.new(client_options)
-        response = client.post("#{schema_registry_https_url}/subjects/#{schema_subject}/versions",
-                               headers: { "Content-Type" => "application/vnd.schemaregistry.v1+json" },
-                               body: { schema: test_schema_json }.to_json
-        ).call
-        expect(response.code).to eq(200)
-        client.close
+        register_schema(schema_registry_https_url, schema_subject, test_schema_json,
+                       username: username, password: password,
+                       ssl_options: ssl_options)
       end
 
       it "fetches schema with both authentication and SSL" do
@@ -379,6 +355,73 @@ describe "Avro Codec Integration Tests", :integration => true do
 
         codec.encode(event)
         expect(encoded_data).not_to be_nil
+      end
+    end
+  end
+
+  context "Schema Registry with keystore configuration (mutual TLS)" do
+    let(:schema_registry_https_url) { "https://localhost:8083" }
+
+    let(:truststore_path) { File.join(INTEGRATION_DIR, "tls_repository", "clienttruststore.jks") }
+    let(:truststore_password) { "changeit" }
+    let(:keystore_path) { File.join(INTEGRATION_DIR, "tls_repository", "schema_reg.jks") }
+    let(:keystore_password) { "changeit" }
+
+    before(:all) do
+      run_integration_script("stop_schema_registry.sh")
+      run_integration_script("start_schema_registry_mutual.sh")
+
+      ssl_options = {
+        keystore: File.join(INTEGRATION_DIR, "tls_repository", "schema_reg.jks"),
+        keystore_password: "changeit",
+        keystore_type: "jks",
+        truststore: File.join(INTEGRATION_DIR, "tls_repository", "clienttruststore.jks"),
+        truststore_password: "changeit",
+        truststore_type: "jks"
+      }
+      wait_for_schema_registry("https://localhost:8083", ssl_options: ssl_options)
+    end
+
+    after(:all) do
+      run_integration_script("stop_schema_registry.sh")
+    end
+
+    context "with keystore and truststore" do
+      let(:schema_subject) { "test-mutual-tls-#{Time.now.to_i}" }
+      let(:full_schema_url) { "#{schema_registry_https_url}/subjects/#{schema_subject}/versions/latest" }
+
+      let(:config) do
+        super().merge({
+                        'schema_uri' => full_schema_url,
+                        'ssl_enabled' => true,
+                        'ssl_keystore_path' => keystore_path,
+                        'ssl_keystore_password' => keystore_password,
+                        'ssl_keystore_type' => 'JKS',
+                        'ssl_truststore_path' => truststore_path,
+                        'ssl_truststore_password' => truststore_password,
+                        'ssl_truststore_type' => 'JKS',
+                        'ssl_verification_mode' => 'full'
+                      })
+      end
+
+      before do
+        ssl_options = {
+          keystore: keystore_path,
+          keystore_password: keystore_password,
+          keystore_type: "jks",
+          truststore: truststore_path,
+          truststore_password: truststore_password,
+          truststore_type: "jks",
+          verify: :default
+        }
+        register_schema(schema_registry_https_url, schema_subject, test_schema_json,
+                       ssl_options: ssl_options)
+      end
+
+      it "fetches schema" do
+        encoded_data = encode_avro_data(test_schema_json, test_event_data)
+        events = decode_with_codec(codec, encoded_data)
+        expect_decoded_event_matches(events, test_event_data)
       end
     end
   end

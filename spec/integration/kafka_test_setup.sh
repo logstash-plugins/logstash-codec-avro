@@ -67,6 +67,11 @@ echo "ssl.keystore.location=`pwd`/tls_repository/schema_reg.jks" >> "build/confl
 echo "ssl.keystore.password=changeit" >> "build/confluent_platform/etc/schema-registry/schema-registry.properties"
 echo "ssl.key.password=changeit" >> "build/confluent_platform/etc/schema-registry/schema-registry.properties"
 
+cp "build/confluent_platform/etc/schema-registry/schema-registry.properties" "build/confluent_platform/etc/schema-registry/schema-registry-mutual.properties"
+echo "ssl.truststore.location=`pwd`/tls_repository/clienttruststore.jks" >> "build/confluent_platform/etc/schema-registry/schema-registry-mutual.properties"
+echo "ssl.truststore.password=changeit" >> "build/confluent_platform/etc/schema-registry/schema-registry-mutual.properties"
+echo "confluent.http.server.ssl.client.authentication=REQUIRED" >> "build/confluent_platform/etc/schema-registry/schema-registry-mutual.properties"
+
 cp "build/confluent_platform/etc/schema-registry/schema-registry.properties" "build/confluent_platform/etc/schema-registry/authed-schema-registry.properties"
 echo "authentication.method=BASIC" >> "build/confluent_platform/etc/schema-registry/authed-schema-registry.properties"
 echo "authentication.roles=admin,developer,user" >> "build/confluent_platform/etc/schema-registry/authed-schema-registry.properties"

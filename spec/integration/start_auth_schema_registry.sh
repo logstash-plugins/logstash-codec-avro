@@ -1,5 +1,4 @@
 #!/bin/bash
-# Setup Kafka and create test topics
 set -ex
 
 echo "Starting authed SchemaRegistry"
