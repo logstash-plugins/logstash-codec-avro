@@ -69,7 +69,7 @@ echo "ssl.key.password=changeit" >> "build/confluent_platform/etc/schema-registr
 
 cp "build/confluent_platform/etc/schema-registry/schema-registry.properties" "build/confluent_platform/etc/schema-registry/authed-schema-registry.properties"
 echo "authentication.method=BASIC" >> "build/confluent_platform/etc/schema-registry/authed-schema-registry.properties"
-echo "authentication.roles=admin,developer,user,sr-user" >> "build/confluent_platform/etc/schema-registry/authed-schema-registry.properties"
+echo "authentication.roles=admin,developer,user" >> "build/confluent_platform/etc/schema-registry/authed-schema-registry.properties"
 echo "authentication.realm=SchemaRegistry-Props" >> "build/confluent_platform/etc/schema-registry/authed-schema-registry.properties"
 cp fixtures/jaas.config "build/confluent_platform/etc/schema-registry"
 

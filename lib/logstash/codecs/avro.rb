@@ -190,13 +190,13 @@ class LogStash::Codecs::Avro < LogStash::Codecs::Base
     https_connection = uri_string.start_with?('https://')
 
     if http_connection
-      ssl_config_provided = original_params.keys.select {|k| k.start_with?("ssl_") && k != "ssl_enabled" }
+      ssl_config_provided = original_params.keys.select {|k| k.start_with?("ssl_") }
       if ssl_config_provided.any?
         raise_config_error! "When SSL is disabled, the following provided parameters are not allowed: #{ssl_config_provided}"
       end
 
       credentials_configured = @username && @password
-      @logger.warn("Credentials are being sent over unencrypted HTTP. This may bring security risk.") if credentials_configured && http_connection
+      @logger.warn("Credentials are being sent over unencrypted HTTP. This may bring security risk.") if credentials_configured
       fetch_remote_schema(uri_string)
     elsif https_connection
       validate_ssl_settings!
@@ -208,6 +208,7 @@ class LogStash::Codecs::Avro < LogStash::Codecs::Base
   end
 
   def fetch_remote_schema(uri_string)
+    client = nil
     client_options = {}
 
     if @proxy && !@proxy.empty?
@@ -232,18 +233,16 @@ class LogStash::Codecs::Avro < LogStash::Codecs::Base
     body = response.body
     # Response may contain schema metadata, schema field is what we need
     # Example response: {"subject":"test-no-auth-1763597024","version":1,"id":1,"guid":"5c6c5f26-e876-e5ab-02b0-8d9bebbc90d7","schemaType":"AVRO","schema":"{"type":"record","name":"TestRecord","namespace":"com.example","fields":[{"name":"message","type":"string"},{"name":"timestamp","type":"long"}]}","ts":1763597024561,"deleted":false}
-    begin
-      parsed = JSON.parse(body)
-      if parsed.is_a?(Hash) && parsed.has_key?('schema')
-        parsed['schema']
-      else
-        # fallback to use the response as it is
-        body
-      end
-    rescue JSON::ParserError
-      # Not JSON, return as-is (probably a direct schema)
+    parsed = JSON.parse(body)
+    if parsed.is_a?(Hash) && parsed.has_key?('schema')
+      parsed['schema']
+    else
+      # fallback to use the response as it is
       body
     end
+  rescue JSON::ParserError
+    # Not JSON, return as-is (probably a direct schema)
+    body
   ensure
     client.close if client
   end
@@ -263,6 +262,7 @@ class LogStash::Codecs::Avro < LogStash::Codecs::Base
 
   def validate_ssl_settings!
     @ssl_enabled = true if @ssl_enabled.nil?
+    raise_config_error! "Secured #{@schema_uri} connection requires `ssl_enabled => true`. " unless @ssl_enabled
     @ssl_verification_mode = "full".freeze if @ssl_verification_mode.nil?
 
     # optional: presenting our identity
@@ -270,8 +270,8 @@ class LogStash::Codecs::Avro < LogStash::Codecs::Base
     raise_config_error! "`ssl_certificate` requires `ssl_key`" if @ssl_certificate && !@ssl_key
     ensure_readable_and_non_writable! "ssl_certificate", @ssl_certificate if @ssl_certificate
 
-     raise_config_error! "`ssl_key` is not allowed unless `ssl_certificate` is specified" if @ssl_key && !@ssl_certificate
-     ensure_readable_and_non_writable! "ssl_key", @ssl_key if @ssl_key
+    raise_config_error! "`ssl_key` is not allowed unless `ssl_certificate` is specified" if @ssl_key && !@ssl_certificate
+    ensure_readable_and_non_writable! "ssl_key", @ssl_key if @ssl_key
 
     raise_config_error! "`ssl_keystore_path` requires `ssl_keystore_password`" if @ssl_keystore_path && !@ssl_keystore_password
     raise_config_error! "`ssl_keystore_password` is not allowed unless `ssl_keystore_path` is specified" if @ssl_keystore_password && !@ssl_keystore_path

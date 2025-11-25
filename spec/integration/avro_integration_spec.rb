@@ -38,29 +38,6 @@ describe "Avro Codec Integration Tests", :integration => true do
     end
   end
 
-  def register_schema(schema_registry_url, schema_json, username: nil, password: nil, ssl_options: {})
-    client_options = {}
-
-    if username && password
-      client_options[:auth] = { user: username, password: password }
-    end
-
-    client_options[:ssl] = ssl_options unless ssl_options.empty?
-
-    client = Manticore::Client.new(client_options)
-
-    response = client.post("#{schema_registry_url}/subjects/test-value/versions",
-                           headers: { "Content-Type" => "application/vnd.schemaregistry.v1+json" },
-                           body: { schema: schema_json }.to_json
-    ).call
-
-    raise "Failed to register schema: #{response.code} #{response.body}" unless response.code == 200
-
-    JSON.parse(response.body)["id"]
-  ensure
-    client&.close
-  end
-
   def encode_avro_data(schema_json, data)
     schema = Avro::Schema.parse(schema_json)
     dw = Avro::IO::DatumWriter.new(schema)
@@ -70,14 +47,7 @@ describe "Avro Codec Integration Tests", :integration => true do
     Base64.strict_encode64(buffer.string)
   end
 
-  def create_test_schema_file(filename = "test_schema.avsc")
-    schema_path = File.join(Dir.tmpdir, filename)
-    File.write(schema_path, test_schema_json)
-    schema_path
-  end
-
-  def wait_for_schema_registry(url, timeout: 60, username: nil, password: nil, ssl_options: {})
-    start_time = Time.now
+  def wait_for_schema_registry(url, username: nil, password: nil, ssl_options: {})
     client_options = {}
 
     if username && password
@@ -87,29 +57,11 @@ describe "Avro Codec Integration Tests", :integration => true do
     client_options[:ssl] = ssl_options unless ssl_options.empty?
 
     puts "Waiting for Schema Registry at #{url}..."
-    attempt = 0
+    client = Manticore::Client.new(client_options)
 
-    loop do
-      attempt += 1
-      begin
-        client = Manticore::Client.new(client_options)
-        response = client.get(url).call
-        if response.code == 200
-          puts "✓ Schema Registry is ready after #{attempt} attempts"
-          return true
-        end
-      rescue => e
-        # Continue waiting
-        puts "  Attempt #{attempt}: #{e.class.name} - #{e.message[0..80]}" if attempt % 5 == 0
-      ensure
-        client&.close if client
-      end
-
-      if Time.now - start_time > timeout
-        raise "Schema Registry at #{url} did not become available within #{timeout} seconds after #{attempt} attempts"
-      end
-
-      sleep 2
+    Stud.try(20.times, [Manticore::SocketException, StandardError, RSpec::Expectations::ExpectationNotMetError]) do
+      response = client.get(url).call
+      expect(response.code).to eq(200)
     end
   end
 
@@ -123,7 +75,6 @@ describe "Avro Codec Integration Tests", :integration => true do
 
     after(:all) do
       run_integration_script("stop_schema_registry.sh")
-      sleep 2
     end
 
     context "fetching schema via HTTP" do
@@ -131,7 +82,6 @@ describe "Avro Codec Integration Tests", :integration => true do
       let(:full_schema_url) do
         url = "#{schema_registry_url}/subjects/#{schema_subject}/versions/latest"
         puts "Constructed schema URL: #{url}"
-        raise "Schema URL is empty!" if url.nil? || url.empty? || !url.start_with?('http')
         url
       end
 
@@ -189,15 +139,12 @@ describe "Avro Codec Integration Tests", :integration => true do
 
     before(:all) do
       run_integration_script("stop_schema_registry.sh")
-      sleep 2
       run_integration_script("start_auth_schema_registry.sh")
-      sleep 5
       wait_for_schema_registry("http://localhost:8081", username: "barney", password: "changeme")
     end
 
     after(:all) do
       run_integration_script("stop_schema_registry.sh")
-      sleep 2
     end
 
     context "with valid credentials" do
@@ -259,7 +206,7 @@ describe "Avro Codec Integration Tests", :integration => true do
         expect {
           invalid_config = { 'schema_uri' => full_schema_url, 'username' => 'invalid', 'password' => 'wrong' }
           LogStash::Codecs::Avro.new(invalid_config).tap { |c| c.register }
-        }.to raise_error(/401|403|HTTP request failed/)
+        }.to raise_error(/401 Unauthorized/)
       end
     end
   end
@@ -273,9 +220,7 @@ describe "Avro Codec Integration Tests", :integration => true do
     before(:all) do
       # Ensure non-auth registry is running (it includes HTTPS on 8083)
       run_integration_script("stop_schema_registry.sh")
-      sleep 2
       run_integration_script("start_schema_registry.sh")
-      sleep 5
 
       ssl_options = {
         truststore: File.join(INTEGRATION_DIR, "tls_repository", "clienttruststore.jks"),
@@ -288,7 +233,6 @@ describe "Avro Codec Integration Tests", :integration => true do
 
     after(:all) do
       run_integration_script("stop_schema_registry.sh")
-      sleep 2
     end
 
     context "with truststore configuration" do
@@ -379,9 +323,7 @@ describe "Avro Codec Integration Tests", :integration => true do
     before(:all) do
       # Start authenticated registry (includes HTTPS)
       run_integration_script("stop_schema_registry.sh")
-      sleep 3
       run_integration_script("start_auth_schema_registry.sh")
-      sleep 10
 
       ssl_options = {
         truststore: File.join(INTEGRATION_DIR, "tls_repository", "clienttruststore.jks"),
@@ -394,7 +336,6 @@ describe "Avro Codec Integration Tests", :integration => true do
 
     after(:all) do
       run_integration_script("stop_schema_registry.sh")
-      sleep 2
     end
 
     context "with valid credentials and truststore" do
