@@ -448,7 +448,7 @@ describe LogStash::Codecs::Avro, :ecs_compatibility_support, :aggregate_failures
               'schema_uri' => 'https://schema-registry.example.com/schema.avsc',
               'ssl_keystore_path' => paths[:test_path],
               'ssl_keystore_password' => 'keystore_pass',
-              'ssl_keystore_type' => 'JKS'
+              'ssl_keystore_type' => 'jks'
             }
           end
 
@@ -460,17 +460,17 @@ describe LogStash::Codecs::Avro, :ecs_compatibility_support, :aggregate_failures
           end
         end
 
-        context "with ssl_keystore_path and PKCS12 type" do
+        context "with ssl_keystore_path and pkcs12 type" do
           let(:avro_config) do
             {
               'schema_uri' => 'https://schema-registry.example.com/schema.avsc',
               'ssl_keystore_path' => paths[:test_path],
               'ssl_keystore_password' => 'keystore_pass',
-              'ssl_keystore_type' => 'PKCS12'
+              'ssl_keystore_type' => 'pkcs12'
             }
           end
 
-          it "configures PKCS12 keystore" do
+          it "configures pkcs12 keystore" do
             ssl_options = subject.send(:build_ssl_options)
             expect(ssl_options[:keystore_type]).to eq('pkcs12')
           end
@@ -500,7 +500,7 @@ describe LogStash::Codecs::Avro, :ecs_compatibility_support, :aggregate_failures
               'schema_uri' => 'https://schema-registry.example.com/schema.avsc',
               'ssl_truststore_path' => paths[:test_path],
               'ssl_truststore_password' => 'truststore_pass',
-              'ssl_truststore_type' => 'JKS'
+              'ssl_truststore_type' => 'jks'
             }
           end
 
@@ -512,17 +512,17 @@ describe LogStash::Codecs::Avro, :ecs_compatibility_support, :aggregate_failures
           end
         end
 
-        context "with ssl_truststore_path and PKCS12 type" do
+        context "with ssl_truststore_path and pkcs12 type" do
           let(:avro_config) do
             {
               'schema_uri' => 'https://schema-registry.example.com/schema.avsc',
               'ssl_truststore_path' => paths[:test_path],
               'ssl_truststore_password' => 'truststore_pass',
-              'ssl_truststore_type' => 'PKCS12'
+              'ssl_truststore_type' => 'pkcs12'
             }
           end
 
-          it "configures PKCS12 truststore" do
+          it "configures pkcs12 truststore" do
             ssl_options = subject.send(:build_ssl_options)
             expect(ssl_options[:truststore_type]).to eq('pkcs12')
           end
@@ -772,7 +772,7 @@ describe LogStash::Codecs::Avro, :ecs_compatibility_support, :aggregate_failures
             let(:avro_config) do
               {
                 'schema_uri' => 'https://schema-registry.example.com/schema.avsc',
-                'ssl_keystore_type' => 'JKS'
+                'ssl_keystore_type' => 'jks'
               }
             end
 
