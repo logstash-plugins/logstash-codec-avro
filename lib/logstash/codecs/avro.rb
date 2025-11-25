@@ -122,8 +122,8 @@ class LogStash::Codecs::Avro < LogStash::Codecs::Base
   # The keystore password
   config :ssl_keystore_password, :validate => :password
 
-  # Keystore type (JKS or PKCS12)
-  config :ssl_keystore_type, :validate => %w[JKS PKCS12]
+  # Keystore type (jks or pkcs12)
+  config :ssl_keystore_type, :validate => %w[pkcs12 jks]
 
   # The truststore path
   config :ssl_truststore_path, :validate => :path
@@ -131,8 +131,8 @@ class LogStash::Codecs::Avro < LogStash::Codecs::Base
   # The truststore password
   config :ssl_truststore_password, :validate => :password
 
-  # Truststore type (JKS or PKCS12)
-  config :ssl_truststore_type, :validate => %w[JKS PKCS12]
+  # Truststore type (jks or pkcs12)
+  config :ssl_truststore_type, :validate => %w[jks pkcs12]
 
   # The list of cipher suites to use, listed by priorities.
   # Supported cipher suites vary depending on which version of Java is used.
@@ -227,12 +227,12 @@ class LogStash::Codecs::Avro < LogStash::Codecs::Base
     client = Manticore::Client.new(client_options)
 
     body = Stud.try(3.times, [Manticore::SocketException, Manticore::Timeout, StandardError]) do
-      @logger.debug("Fetching schema from #{uri_string}") if @logger
+      @logger.debug("Fetching schema from #{uri_string}")
       response = client.get(uri_string).call
 
       unless response.code == 200
-        error_msg = "HTTP request failed: #{response.code} #{response.message}"
-        @logger.warn(error_msg) if @logger
+        error_msg = "Failed to fetch schema from #{uri_string}: #{response.code} - #{response.message}"
+        @logger.warn(error_msg)
         raise error_msg
       end
 

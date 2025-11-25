@@ -190,7 +190,7 @@ ssl_certificate => "/path/to/client.crt"
 
 Path to PEM encoded CA certificate file(s) for server verification.
 This is an alternative to using <<plugins-{type}s-{plugin}-ssl_truststore_path>>.
-You cannot use this setting and <<plugins-{type}s-{plugin}-ssl_truststore_path>> at the same time.
+You may use this setting or <<plugins-{type}s-{plugin}-ssl_truststore_path>>, but not both simultaneously.
 
 *Example*
 [source,ruby]
@@ -256,7 +256,7 @@ The password for the keystore file specified in <<plugins-{type}s-{plugin}-ssl_k
 * Value type is <<string,string>>
 * There is no default value for this setting.
 
-The type of the keystore file. Can be either `JKS` or `PKCS12`.
+The format of the keystore file. It must be either `jks` or `pkcs12`.
 
 [id="plugins-{type}s-{plugin}-ssl_supported_protocols"]
 ===== `ssl_supported_protocols`
@@ -305,7 +305,7 @@ The password for the truststore file specified in <<plugins-{type}s-{plugin}-ssl
 * Value type is <<string,string>>
 * There is no default value for this setting.
 
-The format of the truststore file. It must be either `JKS` or `PKCS12`.
+The format of the truststore file. It must be either `jks` or `pkcs12`.
 
 [id="plugins-{type}s-{plugin}-ssl_verification_mode"]
 ===== `ssl_verification_mode`
