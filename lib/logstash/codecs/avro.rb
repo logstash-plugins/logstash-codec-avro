@@ -4,6 +4,7 @@ require "manticore"
 require "avro"
 require "base64"
 require "json"
+require "stud/try"
 require "logstash/codecs/base"
 require "logstash/event"
 require "logstash/timestamp"
@@ -224,13 +225,20 @@ class LogStash::Codecs::Avro < LogStash::Codecs::Base
     end
 
     client = Manticore::Client.new(client_options)
-    response = client.get(uri_string).call
 
-    unless response.code == 200
-      raise "HTTP request failed: #{response.code} #{response.message}"
+    body = Stud.try(3.times, [Manticore::SocketException, Manticore::Timeout, StandardError]) do
+      @logger.debug("Fetching schema from #{uri_string}") if @logger
+      response = client.get(uri_string).call
+
+      unless response.code == 200
+        error_msg = "HTTP request failed: #{response.code} #{response.message}"
+        @logger.warn(error_msg) if @logger
+        raise error_msg
+      end
+
+      response.body
     end
 
-    body = response.body
     # Response may contain schema metadata, schema field is what we need
     # Example response: {"subject":"test-no-auth-1763597024","version":1,"id":1,"guid":"5c6c5f26-e876-e5ab-02b0-8d9bebbc90d7","schemaType":"AVRO","schema":"{"type":"record","name":"TestRecord","namespace":"com.example","fields":[{"name":"message","type":"string"},{"name":"timestamp","type":"long"}]}","ts":1763597024561,"deleted":false}
     parsed = JSON.parse(body)

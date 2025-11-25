@@ -373,6 +373,22 @@ describe LogStash::Codecs::Avro, :ecs_compatibility_support, :aggregate_failures
             expect(subject.instance_variable_get(:@ssl_enabled)).to be false
           end
         end
+
+        context "with explicit ssl_enabled => true and HTTPS URI" do
+          let(:avro_config) do
+            {
+              'schema_uri' => 'https://schema-registry.example.com/schema.avsc',
+              'ssl_enabled' => false
+            }
+          end
+
+          it "requires ssl_enabled => true" do
+            expect { subject.send(:validate_ssl_settings!) }.to raise_error(
+                                                                  LogStash::ConfigurationError,
+                                                                  /Secured https:\/\/schema-registry.example.com\/schema.avsc connection requires `ssl_enabled => true`. /
+                                                                )
+          end
+        end
       end
 
       context "SSL verification" do

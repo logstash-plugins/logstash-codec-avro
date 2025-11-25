@@ -47,6 +47,20 @@ describe "Avro Codec Integration Tests", :integration => true do
     Base64.strict_encode64(buffer.string)
   end
 
+  def decode_with_codec(codec, encoded_data)
+    events = []
+    codec.decode(encoded_data) do |event|
+      events << event
+    end
+    events
+  end
+
+  def expect_decoded_event_matches(events, expected_data)
+    expect(events.size).to eq(1)
+    expect(events.first.get("message")).to eq(expected_data["message"])
+    expect(events.first.get("timestamp")).to eq(expected_data["timestamp"])
+  end
+
   def wait_for_schema_registry(url, username: nil, password: nil, ssl_options: {})
     client_options = {}
 
@@ -100,14 +114,8 @@ describe "Avro Codec Integration Tests", :integration => true do
 
       it "fetches and decodes schema from Schema Registry" do
         encoded_data = encode_avro_data(test_schema_json, test_event_data)
-        events = []
-        codec.decode(encoded_data) do |event|
-          events << event
-        end
-
-        expect(events.size).to eq(1)
-        expect(events.first.get("message")).to eq(test_event_data["message"])
-        expect(events.first.get("timestamp")).to eq(test_event_data["timestamp"])
+        events = decode_with_codec(codec, encoded_data)
+        expect_decoded_event_matches(events, test_event_data)
       end
 
       it "encodes data using schema from schema registry" do
@@ -122,12 +130,8 @@ describe "Avro Codec Integration Tests", :integration => true do
 
         expect(encoded_data).not_to be_nil
 
-        events = []
-        codec.decode(encoded_data) do |decoded_event|
-          events << decoded_event
-        end
-
-        expect(events.first.get("message")).to eq(test_event_data["message"])
+        events = decode_with_codec(codec, encoded_data)
+        expect_decoded_event_matches(events, test_event_data)
       end
     end
   end
@@ -165,13 +169,8 @@ describe "Avro Codec Integration Tests", :integration => true do
 
       it "fetches schema with valid credentials" do
         encoded_data = encode_avro_data(test_schema_json, test_event_data)
-        events = []
-        codec.decode(encoded_data) do |event|
-          events << event
-        end
-
-        expect(events.size).to eq(1)
-        expect(events.first.get("message")).to eq(test_event_data["message"])
+        events = decode_with_codec(codec, encoded_data)
+        expect_decoded_event_matches(events, test_event_data)
       end
 
       it "encodes data with authentication" do
@@ -267,13 +266,8 @@ describe "Avro Codec Integration Tests", :integration => true do
 
       it "fetches schema using truststore" do
         encoded_data = encode_avro_data(test_schema_json, test_event_data)
-        events = []
-        codec.decode(encoded_data) do |event|
-          events << event
-        end
-
-        expect(events.size).to eq(1)
-        expect(events.first.get("message")).to eq(test_event_data["message"])
+        events = decode_with_codec(codec, encoded_data)
+        expect_decoded_event_matches(events, test_event_data)
       end
     end
 
@@ -302,13 +296,8 @@ describe "Avro Codec Integration Tests", :integration => true do
 
       it "fetches schema using CA certificate" do
         encoded_data = encode_avro_data(test_schema_json, test_event_data)
-        events = []
-        codec.decode(encoded_data) do |event|
-          events << event
-        end
-
-        expect(events.size).to eq(1)
-        expect(events.first.get("message")).to eq(test_event_data["message"])
+        events = decode_with_codec(codec, encoded_data)
+        expect_decoded_event_matches(events, test_event_data)
       end
     end
   end
@@ -376,13 +365,8 @@ describe "Avro Codec Integration Tests", :integration => true do
 
       it "fetches schema with both authentication and SSL" do
         encoded_data = encode_avro_data(test_schema_json, test_event_data)
-        events = []
-        codec.decode(encoded_data) do |event|
-          events << event
-        end
-
-        expect(events.size).to eq(1)
-        expect(events.first.get("message")).to eq(test_event_data["message"])
+        events = decode_with_codec(codec, encoded_data)
+        expect_decoded_event_matches(events, test_event_data)
       end
 
       it "encodes data with authentication and SSL" do
