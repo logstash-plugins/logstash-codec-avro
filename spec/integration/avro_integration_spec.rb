@@ -198,8 +198,11 @@ describe "Avro Codec Integration Tests", :integration => true do
       it "fails with invalid credentials" do
         expect {
           invalid_config = { 'schema_uri' => full_schema_url, 'username' => 'invalid', 'password' => 'wrong' }
-          LogStash::Codecs::Avro.new(invalid_config).tap { |c| c.register }
-        }.to raise_error(/401 Unauthorized/)
+          codec = LogStash::Codecs::Avro.new(invalid_config)
+          codec.register
+        }.to raise_error { |error|
+          expect(error.message).to include("401 - Unauthorized")
+        }
       end
     end
   end
@@ -237,7 +240,7 @@ describe "Avro Codec Integration Tests", :integration => true do
                         'ssl_enabled' => true,
                         'ssl_truststore_path' => truststore_path,
                         'ssl_truststore_password' => truststore_password,
-                        'ssl_truststore_type' => 'JKS',
+                        'ssl_truststore_type' => 'jks',
                         'ssl_verification_mode' => 'full'
                       })
       end
@@ -322,7 +325,7 @@ describe "Avro Codec Integration Tests", :integration => true do
                         'ssl_enabled' => true,
                         'ssl_truststore_path' => truststore_path,
                         'ssl_truststore_password' => truststore_password,
-                        'ssl_truststore_type' => 'JKS',
+                        'ssl_truststore_type' => 'jks',
                         'ssl_verification_mode' => 'full'
                       })
       end
@@ -396,10 +399,10 @@ describe "Avro Codec Integration Tests", :integration => true do
                         'ssl_enabled' => true,
                         'ssl_keystore_path' => keystore_path,
                         'ssl_keystore_password' => keystore_password,
-                        'ssl_keystore_type' => 'JKS',
+                        'ssl_keystore_type' => 'jks',
                         'ssl_truststore_path' => truststore_path,
                         'ssl_truststore_password' => truststore_password,
-                        'ssl_truststore_type' => 'JKS',
+                        'ssl_truststore_type' => 'jks',
                         'ssl_verification_mode' => 'full'
                       })
       end

@@ -123,7 +123,7 @@ class LogStash::Codecs::Avro < LogStash::Codecs::Base
   config :ssl_keystore_password, :validate => :password
 
   # Keystore type (jks or pkcs12)
-  config :ssl_keystore_type, :validate => %w[pkcs12 jks]
+  config :ssl_keystore_type, :validate => %w[jks pkcs12]
 
   # The truststore path
   config :ssl_truststore_path, :validate => :path
@@ -281,7 +281,6 @@ class LogStash::Codecs::Avro < LogStash::Codecs::Base
     raise_config_error! "`ssl_key` is not allowed unless `ssl_certificate` is specified" if @ssl_key && !@ssl_certificate
     ensure_readable_and_non_writable! "ssl_key", @ssl_key if @ssl_key
 
-    raise_config_error! "`ssl_keystore_path` requires `ssl_keystore_password`" if @ssl_keystore_path && !@ssl_keystore_password
     raise_config_error! "`ssl_keystore_password` is not allowed unless `ssl_keystore_path` is specified" if @ssl_keystore_password && !@ssl_keystore_path
     raise_config_error! "`ssl_keystore_password` cannot be empty" if @ssl_keystore_password && @ssl_keystore_password.value.empty?
     raise_config_error! "`ssl_keystore_type` is not allowed unless `ssl_keystore_path` is specified" if @ssl_keystore_type && !@ssl_keystore_path
@@ -297,7 +296,6 @@ class LogStash::Codecs::Avro < LogStash::Codecs::Base
     end
 
     raise_config_error! "`ssl_truststore_path` and `ssl_certificate_authorities` cannot be used together." if @ssl_truststore_path && @ssl_certificate_authorities
-    raise_config_error! "`ssl_truststore_path` requires `ssl_truststore_password`" if @ssl_truststore_path && !@ssl_truststore_password
     ensure_readable_and_non_writable! "ssl_truststore_path", @ssl_truststore_path if @ssl_truststore_path
 
     raise_config_error! "`ssl_truststore_password` is not allowed unless `ssl_truststore_path` is specified" if !@ssl_truststore_path && @ssl_truststore_password

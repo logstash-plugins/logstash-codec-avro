@@ -475,22 +475,6 @@ describe LogStash::Codecs::Avro, :ecs_compatibility_support, :aggregate_failures
             expect(ssl_options[:keystore_type]).to eq('pkcs12')
           end
         end
-
-        context "with ssl_keystore_path but no password" do
-          let(:avro_config) do
-            {
-              'schema_uri' => 'https://schema-registry.example.com/schema.avsc',
-              'ssl_keystore_path' => paths[:test_path],
-            }
-          end
-
-          it "raises ConfigurationError" do
-            expect { subject.send(:validate_ssl_settings!) }.to raise_error(
-                                                                  LogStash::ConfigurationError,
-                                                                  /`ssl_keystore_path` requires `ssl_keystore_password`/
-                                                                )
-          end
-        end
       end
 
       context "truststore configuration" do
@@ -525,22 +509,6 @@ describe LogStash::Codecs::Avro, :ecs_compatibility_support, :aggregate_failures
           it "configures pkcs12 truststore" do
             ssl_options = subject.send(:build_ssl_options)
             expect(ssl_options[:truststore_type]).to eq('pkcs12')
-          end
-        end
-
-        context "with ssl_truststore_path but no password" do
-          let(:avro_config) do
-            {
-              'schema_uri' => 'https://schema-registry.example.com/schema.avsc',
-              'ssl_truststore_path' => paths[:test_path]
-            }
-          end
-
-          it "raises ConfigurationError" do
-            expect { subject.send(:validate_ssl_settings!) }.to raise_error(
-                                                                  LogStash::ConfigurationError,
-                                                                  /`ssl_truststore_path` requires `ssl_truststore_password`/
-                                                                )
           end
         end
       end
