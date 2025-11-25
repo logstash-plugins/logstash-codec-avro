@@ -191,7 +191,7 @@ class LogStash::Codecs::Avro < LogStash::Codecs::Base
     https_connection = uri_string.start_with?('https://')
 
     if http_connection
-      ssl_config_provided = original_params.keys.select {|k| k.start_with?("ssl_") }
+      ssl_config_provided = original_params.keys.select {|k| k.start_with?("ssl_") && k != "ssl_enabled" }
       if ssl_config_provided.any?
         raise_config_error! "When SSL is disabled, the following provided parameters are not allowed: #{ssl_config_provided}"
       end
