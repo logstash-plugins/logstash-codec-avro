@@ -1,0 +1,2 @@
+# Empty dir for test cases to run, imitates readable/non-readable/writable folder
+# When configs are :path validated, existed path is required
