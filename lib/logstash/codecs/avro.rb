@@ -267,13 +267,13 @@ class LogStash::Codecs::Avro < LogStash::Codecs::Base
 
       # retry block
       retry_count += 1
-      if retry_count <= max_retries
-        backoff_time = 2 ** (retry_count - 1)  # Exponential backoff: 1s, 2s, 4s
+      if retry_count < max_retries
+        backoff_time = 2 ** (retry_count)  # Exponential backoff: 1s, 2s, 4s
         @logger.warn("Attempt #{retry_count}/#{max_retries} failed for #{uri_string}: #{e.class} - #{e.message}. Retrying in #{backoff_time}s...")
         sleep(backoff_time)
         retry
       else
-        @logger.error("Failed to fetch schema from #{uri_string} after #{max_retries + 1} attempts: #{e.class} - #{e.message}")
+        @logger.error("Failed to fetch schema from #{uri_string} after #{max_retries} attempts: #{e.class} - #{e.message}")
         raise
       end
     end
