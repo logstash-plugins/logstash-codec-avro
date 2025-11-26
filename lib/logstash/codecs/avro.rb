@@ -4,7 +4,6 @@ require "manticore"
 require "avro"
 require "base64"
 require "json"
-require "stud/try"
 require "logstash/codecs/base"
 require "logstash/event"
 require "logstash/timestamp"
@@ -114,7 +113,7 @@ class LogStash::Codecs::Avro < LogStash::Codecs::Base
   # "full": validates that the provided certificate has an issue date that’s within the not_before and not_after dates;
   # chains to a trusted Certificate Authority (CA); has a hostname or IP address that matches the names within the certificate.
   # "none": performs no certificate validation. Disabling this severely compromises security (https://www.cs.utexas.edu/~shmat/shmat_ccs12.pdf)
-  config :ssl_verification_mode, :validate => %w[full none], :default => 'full'
+  config :ssl_verification_mode, :validate => %w[full none]
 
   # The keystore path
   config :ssl_keystore_path, :validate => :path
@@ -139,7 +138,7 @@ class LogStash::Codecs::Avro < LogStash::Codecs::Base
   config :ssl_cipher_suites, :validate => :string, :list => true
 
   # SSL supported protocols
-  config :ssl_supported_protocols, :validate => %w[TLSv1.1 TLSv1.2 TLSv1.3], :default => [], :list => true
+  config :ssl_supported_protocols, :validate => %w[TLSv1.1 TLSv1.2 TLSv1.3], :list => true
 
   public
   def initialize(*params)
@@ -182,7 +181,7 @@ class LogStash::Codecs::Avro < LogStash::Codecs::Base
       @on_event.call(event, Base64.strict_encode64(buffer.string))
     else
       @on_event.call(event, buffer.string)
-    end  
+    end
   end
 
   private
@@ -226,17 +225,36 @@ class LogStash::Codecs::Avro < LogStash::Codecs::Base
 
     client = Manticore::Client.new(client_options)
 
-    body = Stud.try(3.times, [Manticore::SocketException, Manticore::Timeout, StandardError]) do
-      @logger.debug("Fetching schema from #{uri_string}")
-      response = client.get(uri_string).call
+    @logger.debug("Fetching schema from #{uri_string}")
 
+    max_retries = 3
+    retry_count = 0
+    body = nil
+
+    begin
+      response = client.get(uri_string).call
+      
       unless response.code == 200
         error_msg = "Failed to fetch schema from #{uri_string}: #{response.code} - #{response.message}"
-        @logger.warn(error_msg)
-        raise error_msg
+        @logger.error(error_msg)
+        raise StandardError, error_msg
       end
-
-      response.body
+      body = response.body
+    rescue Manticore::ManticoreException => e
+      retry_count += 1
+      if retry_count <= max_retries
+        backoff_time = 2 ** (retry_count - 1)  # Exponential backoff: 1s, 2s, 4s
+        @logger.warn("Attempt #{retry_count}/#{max_retries} failed for #{uri_string}: #{e.class} - #{e.message}. Retrying in #{backoff_time}s...")
+        sleep(backoff_time)
+        retry
+      else
+        @logger.error("Failed to fetch schema from #{uri_string} after #{max_retries} attempts: #{e.class} - #{e.message}")
+        raise
+      end
+    rescue StandardError => e
+      # Don't retry HTTP errors (401, 404, etc.) or other non-transient errors
+      @logger.error("Failed to fetch schema from #{uri_string}: #{e.class} - #{e.message}")
+      raise
     end
 
     # Response may contain schema metadata, schema field is what we need

@@ -436,6 +436,7 @@ describe LogStash::Codecs::Avro, :ecs_compatibility_support, :aggregate_failures
           end
 
           it "defaults to 'full'" do
+            subject.send(:validate_ssl_settings!)
             expect(subject.instance_variable_get(:@ssl_verification_mode)).to eq('full')
           end
         end
