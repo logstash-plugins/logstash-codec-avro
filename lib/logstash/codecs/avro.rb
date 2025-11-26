@@ -52,6 +52,17 @@ require 'logstash/plugin_mixins/event_support/event_factory_adapter'
 # }
 # ----------------------------------
 class LogStash::Codecs::Avro < LogStash::Codecs::Base
+  class BadResponseCodeError < LogStash::Error
+    attr_reader :code, :message, :uri
+
+    def initialize(code, message, uri)
+      @code = code
+      @message = message
+      @uri = uri
+      super("HTTP #{code}: #{message} (#{uri})")
+    end
+  end
+
   config_name "avro"
 
   include LogStash::PluginMixins::ECSCompatibilitySupport(:disabled, :v1, :v8 => :v1)
@@ -233,14 +244,28 @@ class LogStash::Codecs::Avro < LogStash::Codecs::Base
 
     begin
       response = client.get(uri_string).call
-      
+
       unless response.code == 200
-        error_msg = "Failed to fetch schema from #{uri_string}: #{response.code} - #{response.message}"
-        @logger.error(error_msg)
-        raise StandardError, error_msg
+        @logger.error("Failed to fetch schema from #{uri_string}: #{response.code} - #{response.message}")
+        raise BadResponseCodeError.new(response.code, response.message, uri_string)
       end
+
       body = response.body
-    rescue Manticore::ManticoreException => e
+
+      # Parse and extract schema
+      parsed = JSON.parse(body)
+      return parsed.is_a?(Hash) && parsed.has_key?('schema') ? parsed['schema'] : body
+
+    rescue JSON::ParserError
+      return body
+    rescue Manticore::ManticoreException, BadResponseCodeError => e
+      # 4xx don't retry
+      if e.is_a?(BadResponseCodeError) && e.code >= 400 && e.code < 500
+        @logger.error("Failed to fetch schema from #{uri_string}: #{e.code} - #{e.message}")
+        raise
+      end
+
+      # retry block
       retry_count += 1
       if retry_count <= max_retries
         backoff_time = 2 ** (retry_count - 1)  # Exponential backoff: 1s, 2s, 4s
@@ -248,27 +273,10 @@ class LogStash::Codecs::Avro < LogStash::Codecs::Base
         sleep(backoff_time)
         retry
       else
-        @logger.error("Failed to fetch schema from #{uri_string} after #{max_retries} attempts: #{e.class} - #{e.message}")
+        @logger.error("Failed to fetch schema from #{uri_string} after #{max_retries + 1} attempts: #{e.class} - #{e.message}")
         raise
       end
-    rescue StandardError => e
-      # Don't retry HTTP errors (401, 404, etc.) or other non-transient errors
-      @logger.error("Failed to fetch schema from #{uri_string}: #{e.class} - #{e.message}")
-      raise
     end
-
-    # Response may contain schema metadata, schema field is what we need
-    # Example response: {"subject":"test-no-auth-1763597024","version":1,"id":1,"guid":"5c6c5f26-e876-e5ab-02b0-8d9bebbc90d7","schemaType":"AVRO","schema":"{"type":"record","name":"TestRecord","namespace":"com.example","fields":[{"name":"message","type":"string"},{"name":"timestamp","type":"long"}]}","ts":1763597024561,"deleted":false}
-    parsed = JSON.parse(body)
-    if parsed.is_a?(Hash) && parsed.has_key?('schema')
-      parsed['schema']
-    else
-      # fallback to use the response as it is
-      body
-    end
-  rescue JSON::ParserError
-    # Not JSON, return as-is (probably a direct schema)
-    body
   ensure
     client.close if client
   end

@@ -201,7 +201,7 @@ describe "Avro Codec Integration Tests", :integration => true do
           codec = LogStash::Codecs::Avro.new(invalid_config)
           codec.register
         }.to raise_error { |error|
-          expect(error.message).to include("401 - Unauthorized")
+          expect(error.message).to include("Unauthorized")
         }
       end
     end
