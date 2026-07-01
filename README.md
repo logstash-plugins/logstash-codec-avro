@@ -1,6 +1,7 @@
 # Logstash Plugin
 
-[![Travis Build Status](https://travis-ci.com/logstash-plugins/logstash-codec-avro.svg)](https://travis-ci.com/logstash-plugins/logstash-codec-avro)
+[![Unit Tests](https://github.com/logstash-plugins/logstash-codec-avro/actions/workflows/unit-tests.yml/badge.svg?branch=main)](https://github.com/logstash-plugins/logstash-codec-avro/actions/workflows/unit-tests.yml)
+[![Integration Tests](https://github.com/logstash-plugins/logstash-codec-avro/actions/workflows/integration-tests.yml/badge.svg?branch=main)](https://github.com/logstash-plugins/logstash-codec-avro/actions/workflows/integration-tests.yml)
 
 This is a plugin for [Logstash](https://github.com/elastic/logstash).
 
