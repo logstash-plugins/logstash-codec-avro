@@ -19,7 +19,14 @@ mkdir build
 echo "Setup Kafka version $KAFKA_VERSION"
 if [ ! -e "kafka_2.13-$KAFKA_VERSION.tgz" ]; then
   echo "Kafka not present locally, downloading"
-  curl -s -o "kafka_2.13-$KAFKA_VERSION.tgz" "https://downloads.apache.org/kafka/$KAFKA_VERSION/kafka_2.13-$KAFKA_VERSION.tgz"
+  # Apache only keeps the latest patch releases on downloads.apache.org; older
+  # versions are moved to archive.apache.org. Try the live mirror first, then
+  # fall back to the archive so the build keeps working as Kafka ages. Use -f
+  # so an HTTP error fails here instead of saving an error page that later
+  # breaks `tar` with a cryptic "not recoverable" message.
+  kafka_tgz="kafka_2.13-$KAFKA_VERSION.tgz"
+  curl -fsSL -o "$kafka_tgz" "https://downloads.apache.org/kafka/$KAFKA_VERSION/$kafka_tgz" \
+    || curl -fsSL -o "$kafka_tgz" "https://archive.apache.org/dist/kafka/$KAFKA_VERSION/$kafka_tgz"
 fi
 cp "kafka_2.13-$KAFKA_VERSION.tgz" "build/kafka.tgz"
 mkdir "build/kafka" && tar xzf "build/kafka.tgz" -C "build/kafka" --strip-components 1
@@ -48,7 +55,7 @@ if [ ! -e "confluent-community-$CONFLUENT_VERSION.tar.gz" ]; then
   echo "Confluent Platform not present locally, downloading"
   CONFLUENT_MINOR=$(echo "$CONFLUENT_VERSION" | sed -n 's/^\([[:digit:]]*\.[[:digit:]]*\)\.[[:digit:]]*$/\1/p')
   echo "CONFLUENT_MINOR is $CONFLUENT_MINOR"
-  curl -s -o "confluent-community-$CONFLUENT_VERSION.tar.gz" "http://packages.confluent.io/archive/$CONFLUENT_MINOR/confluent-community-$CONFLUENT_VERSION.tar.gz"
+  curl -fsSL -o "confluent-community-$CONFLUENT_VERSION.tar.gz" "https://packages.confluent.io/archive/$CONFLUENT_MINOR/confluent-community-$CONFLUENT_VERSION.tar.gz"
 fi
 echo "Extracting confluent-community-$CONFLUENT_VERSION.tar.gz to build"
 mkdir "build/confluent_platform" && tar xzf "confluent-community-$CONFLUENT_VERSION.tar.gz" -C "build/confluent_platform" --strip-components 1
